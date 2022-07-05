@@ -10,10 +10,10 @@ import os
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
-    'model_name', choices=['bart-base', 't5-small'],
+    'model_name', choices=['bart-base', 'bart-large', 't5-small'],
 )
 parser.add_argument(
-    '--dataset', default='../../wikidata_simplequuestion'
+    '--dataset_name', default='../../wikidata_simplequestions/'
 )
 parser.add_argument(
     '--dataset_config_name', default='answerable_en'
@@ -24,11 +24,31 @@ parser.add_argument(
 parser.add_argument(
     '--save_dir', default='./runs'
 )
+parser.add_argument(
+    '--num_train_epochs', default=4,
+    type=int,
+)
+parser.add_argument(
+    '--per_device_train_batch_size', default=1,
+    type=int,
+)
+parser.add_argument(
+    '--logging_steps', default=500,
+    type=int,
+)
+parser.add_argument(
+    '--eval_steps', default=500,
+    type=int,
+)
+parser.add_argument(
+    '--gradient_accumulation_steps', default=8,
+    type=int,
+)
 
 
 def convert_to_features(example_batch, tokenizer):
-    input_encodings = tokenizer.batch_encode_plus(example_batch['question'], pad_to_max_length=True, max_length=1024, truncation=True)
-    target_encodings = tokenizer.batch_encode_plus(example_batch['object'], pad_to_max_length=True, max_length=1024, truncation=True)
+    input_encodings = tokenizer.batch_encode_plus(example_batch['question'], pad_to_max_length=True, truncation=True)
+    target_encodings = tokenizer.batch_encode_plus(example_batch['object'], pad_to_max_length=True, truncation=True)
     
     labels = target_encodings['input_ids']
     
@@ -48,6 +68,9 @@ def get_model_and_tokenizer_by_name(model_name):
     elif model_name == 't5-small':
         tokenizer = T5Tokenizer.from_pretrained('t5-small')
         model = T5ForConditionalGeneration.from_pretrained('t5-small')
+    elif model_name == 'bart-large':
+        tokenizer = BartTokenizer.from_pretrained('facebook/bart-large')
+        model = BartForConditionalGeneration.from_pretrained('facebook/bart-large')
     else:
         raise ValueError(f'model_name must be BART or T5, but passed {model_name}')
 
@@ -73,16 +96,17 @@ def fit_model(args):
 
     training_args = Seq2SeqTrainingArguments(
         output_dir=os.path.join(args.save_dir, f'./models/{args.model_name}'),          
-        num_train_epochs=1,           
-        per_device_train_batch_size=1, 
+        num_train_epochs=args.num_train_epochs,           
+        per_device_train_batch_size=args.per_device_train_batch_size, 
         per_device_eval_batch_size=1,   
         warmup_steps=500,               
         weight_decay=0.01,              
         logging_dir=os.path.join(args.save_dir, f'./logs/{args.model_name}'),
         evaluation_strategy='steps',
-        eval_steps=250,
-        logging_steps=250,
+        eval_steps=args.eval_steps,
+        logging_steps=args.logging_steps,
         load_best_model_at_end=True,
+        gradient_accumulation_steps=args.gradient_accumulation_steps
     )
 
     trainer = Seq2SeqTrainer(
