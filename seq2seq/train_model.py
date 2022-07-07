@@ -10,7 +10,7 @@ import os
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
-    'model_name', choices=['bart-base', 'bart-large', 't5-small'],
+    'model_name', choices=['bart-base', 'bart-large', 't5-small', 't5-base'],
 )
 parser.add_argument(
     '--dataset_name', default='../../wikidata_simplequestions/'
@@ -46,9 +46,9 @@ parser.add_argument(
 )
 
 
-def convert_to_features(example_batch, tokenizer):
-    input_encodings = tokenizer.batch_encode_plus(example_batch['question'], pad_to_max_length=True, truncation=True)
-    target_encodings = tokenizer.batch_encode_plus(example_batch['object'], pad_to_max_length=True, truncation=True)
+def convert_to_features(example_batch, tokenizer, model):
+    input_encodings = tokenizer.batch_encode_plus(example_batch['question'], pad_to_max_length=True, max_length=1024, truncation=True)
+    target_encodings = tokenizer.batch_encode_plus(example_batch['object'], pad_to_max_length=True, max_length=1024, truncation=True)
     
     labels = target_encodings['input_ids']
     
@@ -71,6 +71,9 @@ def get_model_and_tokenizer_by_name(model_name):
     elif model_name == 'bart-large':
         tokenizer = BartTokenizer.from_pretrained('facebook/bart-large')
         model = BartForConditionalGeneration.from_pretrained('facebook/bart-large')
+    elif model_name == 't5-base':
+        tokenizer = T5Tokenizer.from_pretrained('t5-base')
+        model = T5ForConditionalGeneration.from_pretrained('t5-base')
     else:
         raise ValueError(f'model_name must be BART or T5, but passed {model_name}')
 
@@ -88,7 +91,7 @@ def fit_model(args):
     )
     dataset = dataset.filter(lambda example: isinstance(example['object'], str))
     dataset = dataset.map(
-        lambda batch: convert_to_features(batch, tokenizer),
+        lambda batch: convert_to_features(batch, tokenizer, model),
         batched=True,
     )
     columns = ['input_ids', 'labels', 'attention_mask',] 
