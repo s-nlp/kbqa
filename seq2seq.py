@@ -98,9 +98,15 @@ def evaluate(args):
         "test",
     )
 
-    results_df, report = make_report(model, tokenizer, dataset, device)
+    results_df, report = make_report(
+        model=model,
+        tokenizer=tokenizer,
+        dataset=dataset,
+        batch_size=args.per_device_train_batch_size,
+        device=device,
+    )
 
-    eval_report_dir = Path(args.save_dir) / "evaluation" / normolized_model_name
+    eval_report_dir = Path(args.save_dir) / "evaluation" / normolized_model_name.name
     eval_report_dir.mkdir(parents=True, exist_ok=True)
     results_df.to_csv(eval_report_dir / "results.csv", index=False)
     with open(eval_report_dir / "report.json", "w", encoding=None) as file_handler:
