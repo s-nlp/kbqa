@@ -107,6 +107,7 @@ def load_kbqa_seq2seq_dataset(
     )
 
     dataset = dataset.filter(lambda example: isinstance(example["object"], str))
+    # dataset = dataset.filter(lambda example, idx: idx % 500 == 0, with_indices=True)
     dataset = dataset.map(
         lambda batch: convert_to_features(batch, tokenizer),
         batched=True,
