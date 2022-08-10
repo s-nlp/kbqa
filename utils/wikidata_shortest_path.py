@@ -14,8 +14,8 @@ class WikidataShortestPath:
     MAX_DEPTH = 1000000000
 
     def __init__(self, cache_path: str = "./cache") -> None:
-        self.shortest_path_len_cache = dict()
-        self.paths_cache = dict()
+        self.shortest_path_len_cache = {}
+        self.paths_cache = {}
 
         self.cache_path = cache_path
         self.shortest_path_cache_file_path = os.path.join(
@@ -25,9 +25,9 @@ class WikidataShortestPath:
             os.path.join(self.cache_path, "wsp_paths_cache.pkl")
         )
 
-        self._load_from_cache()
+        self.load_from_cache()
 
-    def _load_from_cache(self):
+    def load_from_cache(self):
         if os.path.exists(self.shortest_path_cache_file_path):
             with open(self.shortest_path_cache_file_path, "rb") as file:
                 self.shortest_path_len_cache = pickle.load(file)
@@ -36,7 +36,7 @@ class WikidataShortestPath:
             with open(self.paths_cache_file_path, "rb") as file:
                 self.paths_cache = pickle.load(file)
 
-    def _save_cache(self):
+    def save_cache(self):
         if not os.path.exists(self.cache_path):
             os.makedirs(self.cache_path)
 
@@ -60,7 +60,7 @@ class WikidataShortestPath:
         path, max_depth = self._request_depth(key[0], key[1])
         self.shortest_path_len_cache[key] = max_depth
         self.paths_cache[key] = path
-        self._save_cache()
+        self.save_cache()
 
         return self.paths_cache[key], self.shortest_path_len_cache[key]
 
@@ -104,6 +104,12 @@ class WikidataShortestPath:
                 return path, max_depth
 
             except JSONDecodeError:
+                print("sleep 60...")
+                time.sleep(60)
+                return _try_get_depth(query, url)
+
+            except Exception:
+                print(f"ERROR with request query:    {query}")
                 print("sleep 60...")
                 time.sleep(60)
                 return _try_get_depth(query, url)

@@ -14,8 +14,10 @@ def predict_answers(
     tokenizer: PreTrainedTokenizer,
     dataset: datasets.arrow_dataset.Dataset,
     batch_size: int = 2,
-    num_beams: int = 10,
-    num_return_sequences: int = 10,
+    num_beams: int = 500,
+    num_return_sequences: int = 500,
+    num_beam_groups: int = 50,
+    diversity_penalty: int = 0.1,
     device: torch.device = torch.device("cuda"),
 ) -> List[str]:
     """predict answers results for HF dataset. Pass needed split.
@@ -39,6 +41,8 @@ def predict_answers(
             batch["input_ids"].to(device),
             num_beams=num_beams,
             num_return_sequences=num_return_sequences,
+            num_beam_groups=num_beam_groups,
+            diversity_penalty=diversity_penalty,
         )
         generated_decoded_batch = tokenizer.batch_decode(
             generated_ids,
@@ -47,26 +51,31 @@ def predict_answers(
         )
 
         current_batch_size = batch["input_ids"].shape[0]
-        for answer_idx, start_batch_idx in enumerate(
-            range(0, current_batch_size * num_return_sequences, current_batch_size)
+        for start_batch_idx in range(
+            0, current_batch_size * num_return_sequences, num_return_sequences
         ):
-            generated_decoded[f"answer_{answer_idx}"].extend(
+            for answer_idx, answer in enumerate(
                 generated_decoded_batch[
-                    start_batch_idx : start_batch_idx + current_batch_size
+                    start_batch_idx : start_batch_idx + num_return_sequences
                 ]
-            )
+            ):
+                generated_decoded[f"answer_{answer_idx}"].append(answer)
 
     return generated_decoded
 
 
 def _get_accuracy_for_report(report: dict, results_df: pd.DataFrame, top_k: int = 0):
-    report[f"num_true_positive_top{top_k}"] = results_df[
-        results_df[f"answer_{top_k}"] == results_df["target"]
-    ].index.size
-    report["num_total"] = results_df.index.size
-    report[f"accuracy_top{top_k}"] = (
-        report[f"num_true_positive_top{top_k}"] / report["num_total"]
+    report[f"num_true_positive_top{top_k}"] = int(
+        results_df.apply(
+            lambda row: row["target"]
+            in [row[f"answer_{top_k}"] for k in range(top_k + 1)],
+            axis=1,
+        ).sum()
     )
+    report["num_total"] = int(results_df.index.size)
+    report[f"accuracy_top{top_k}"] = float(
+        report[f"num_true_positive_top{top_k}"]
+    ) / float(report["num_total"])
     return report
 
 
@@ -75,7 +84,10 @@ def make_report(
     tokenizer: PreTrainedTokenizer,
     dataset: datasets.arrow_dataset.Dataset,
     batch_size: int,
-    num_return_sequences: int = 10,
+    num_beams: int = 500,
+    num_return_sequences: int = 500,
+    num_beam_groups: int = 50,
+    diversity_penalty: int = 0.1,
     device: torch.device = torch.device("cuda"),
 ) -> Tuple[pd.DataFrame, dict]:
     """make_report
@@ -98,7 +110,10 @@ def make_report(
         model=model,
         tokenizer=tokenizer,
         dataset=dataset,
+        num_beams=num_beams,
         num_return_sequences=num_return_sequences,
+        num_beam_groups=num_beam_groups,
+        diversity_penalty=diversity_penalty,
         batch_size=batch_size,
         device=device,
     )
