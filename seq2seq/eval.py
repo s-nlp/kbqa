@@ -43,8 +43,8 @@ def predict_answers(
             num_return_sequences=num_return_sequences,
         )
         generated_decoded_batch = tokenizer.batch_decode(
-            generated_ids, 
-            skip_special_tokens=True, 
+            generated_ids,
+            skip_special_tokens=True,
             clean_up_tokenization_spaces=False,
         )
 
