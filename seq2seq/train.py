@@ -1,6 +1,10 @@
 from typing import Tuple, Optional
 import datasets
 from seq2seq.utils import load_model_and_tokenizer_by_name, load_kbqa_seq2seq_dataset
+from seq2seq.redirect_trainer import Seq2SeqWikidataRedirectsTrainer
+from caches.wikidata_redirects import WikidataRedirectsCache
+from seq2seq.eval import compute_metrics
+
 from transformers import (
     PreTrainedModel,
     Seq2SeqTrainer,
@@ -66,7 +70,6 @@ def train(
     dataset = load_kbqa_seq2seq_dataset(
         dataset_name, dataset_config_name, tokenizer, dataset_cache_dir
     )
-
     training_args = Seq2SeqTrainingArguments(
         output_dir=output_dir,
         save_total_limit=save_total_limit,
@@ -84,13 +87,18 @@ def train(
         gradient_accumulation_steps=gradient_accumulation_steps,
     )
 
-    trainer = Seq2SeqTrainer(
+    redirect_cache = WikidataRedirectsCache()
+
+    trainer = Seq2SeqWikidataRedirectsTrainer(
         model=model,
         args=training_args,
         train_dataset=dataset["train"],
         eval_dataset=dataset["validation"],
+        tokenizer=tokenizer,
+        redirect_cache=redirect_cache,
+        compute_metrics = compute_metrics
     )
-
     trainer.train()
+#     trainer.evaluate(max_length=1024)
 
     return trainer, model, dataset

@@ -7,6 +7,8 @@ import datasets
 import torch
 import pandas as pd
 from torch.utils.data import DataLoader
+from caches.wikidata_redirects import WikidataRedirectsCache
+import evaluate
 
 
 def predict_answers(
@@ -41,9 +43,7 @@ def predict_answers(
             num_return_sequences=num_return_sequences,
         )
         generated_decoded_batch = tokenizer.batch_decode(
-            generated_ids,
-            skip_special_tokens=True,
-            clean_up_tokenization_spaces=False,
+            generated_ids, skip_special_tokens=True, clean_up_tokenization_spaces=False,
         )
 
         current_batch_size = batch["input_ids"].shape[0]
@@ -68,6 +68,30 @@ def _get_accuracy_for_report(report: dict, results_df: pd.DataFrame, top_k: int 
         report[f"num_true_positive_top{top_k}"] / report["num_total"]
     )
     return report
+
+
+def compute_metrics(eval_preds):
+    preds, labels = eval_preds
+
+    # decoding the predictions and labels
+    decoded_preds = tokenizer.batch_decode(preds, skip_special_tokens=True)
+    decoded_labels = tokenizer.batch_decode(labels, skip_special_tokens=True)
+
+    # Some simple post-processing
+    decoded_preds = [pred.strip() for pred in decoded_preds]
+    decoded_labels = [[label.strip()] for label in decoded_labels]
+
+    redirect_labels = []
+    for label in decoded_labels:
+
+        # getting the redirect for the current label
+        redirects = WikidataRedirectsCache.get_redirects(label)
+        redirect_labels.append[redirects]
+
+    # calculating bleu score (list('str') vs list(list('str')))
+    metric = evaluate.load("sacrebleu")
+    result = metric.compute(predictions=decoded_preds, references=redirect_labels)
+    return {"bleu": result["score"]}
 
 
 def make_report(
