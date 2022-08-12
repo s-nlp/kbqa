@@ -96,9 +96,9 @@ def train(
         eval_dataset=dataset["validation"],
         tokenizer=tokenizer,
         redirect_cache=redirect_cache,
-        compute_metrics = compute_metrics
+        compute_metrics = compute_metrics,
     )
     trainer.train()
-#     trainer.evaluate(max_length=1024)
+	#     trainer.evaluate(max_length=1024)
 
     return trainer, model, dataset
