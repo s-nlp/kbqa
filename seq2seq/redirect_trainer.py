@@ -1,6 +1,5 @@
 import torch
 from torch import nn
-from seq2seq.utils import dbpedia
 from transformers import Seq2SeqTrainer
 
 
@@ -10,6 +9,14 @@ class Seq2SeqWikidataRedirectsTrainer(Seq2SeqTrainer):
     Now the loss will be the lowest cross entropy loss when
     calculated against all of the redirects sequences
     """
+
+    def __init__(
+        self,
+        redirect_cache,
+        **kwargs,
+    ):
+        super().__init__(**kwargs)
+        self.redirect_cache = redirect_cache
 
     def compute_loss(self, model, inputs, return_outputs=False):
         labels = inputs.get("labels")
@@ -25,7 +32,7 @@ class Seq2SeqWikidataRedirectsTrainer(Seq2SeqTrainer):
         decoded_labels = self.tokenizer.decode(labels, skip_special_tokens=True)
         decoded_labels = [lab.strip() for lab in decoded_labels]
         decoded_labels = "".join(decoded_labels)
-        redirects = dbpedia(decoded_labels)
+        redirects = self.redirect_cache.get_redirects(decoded_labels)
 
         # encode the redirects
         encoded_redirects = [labels]

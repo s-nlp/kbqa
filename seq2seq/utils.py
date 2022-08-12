@@ -5,7 +5,6 @@ import datasets
 from typing import Dict, Tuple
 from pathlib import Path
 from config import SEQ2SEQ_AVAILABLE_HF_PRETRAINED_MODEL_NAMES
-from SPARQLWrapper import SPARQLWrapper, JSON
 
 
 def load_model_and_tokenizer_by_name(
@@ -132,62 +131,3 @@ def hf_model_name_mormolize(model_name: str) -> str:
         str: normolized model_name
     """
     return model_name.replace("/", "_")
-
-
-# return the array of redirects
-def dbpedia(term):
-    term = term.strip()
-    nterm = term.capitalize().replace(" ", "_")
-
-    query = """
-    PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
-    SELECT ?label
-    WHERE 
-    { 
-     {
-     <http://dbpedia.org/resource/VALUE> <http://dbpedia.org/ontology/wikiPageRedirects> ?x.
-     ?x rdfs:label ?label.
-     }
-     UNION
-     { 
-     <http://dbpedia.org/resource/VALUE> <http://dbpedia.org/ontology/wikiPageRedirects> ?y.
-     ?x <http://dbpedia.org/ontology/wikiPageRedirects> ?y.
-     ?x rdfs:label ?label.
-     }
-    UNION
-     {
-     ?x <http://dbpedia.org/ontology/wikiPageRedirects> <http://dbpedia.org/resource/VALUE>.
-     ?x rdfs:label ?label.
-     }
-     UNION
-     { 
-     ?y <http://dbpedia.org/ontology/wikiPageRedirects> <http://dbpedia.org/resource/VALUE>.
-     ?x <http://dbpedia.org/ontology/wikiPageRedirects> ?y.
-     ?x rdfs:label ?label.
-     }
-     FILTER (lang(?label) = 'en')
-    }
-    """
-    nquery = query.replace("VALUE", nterm)
-
-    sparql = SPARQLWrapper("http://dbpedia.org/sparql")
-    sparql.setQuery(nquery)
-    rterms = []
-    sparql.setReturnFormat(JSON)
-    try:
-        ret = sparql.query()
-        results = ret.convert()
-        request_good = True
-    except Exception:
-        request_good = False
-
-    if request_good is False:
-        return "Problem communicating with the server"
-    if len(results["results"]["bindings"]) == 0:
-        return "No results found"
-
-    for result in results["results"]["bindings"]:
-        label = result["label"]["value"]
-        rterms.append(label)
-
-    return rterms
