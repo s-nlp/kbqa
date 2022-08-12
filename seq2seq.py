@@ -3,7 +3,7 @@ import json
 import torch
 from pathlib import Path
 from config import SEQ2SEQ_AVAILABLE_HF_PRETRAINED_MODEL_NAMES
-from utils import get_best_checkpoint_path
+from utils.train_eval import get_best_checkpoint_path
 from seq2seq.train import train as train_seq2seq
 from seq2seq.eval import make_report
 from seq2seq.utils import (
