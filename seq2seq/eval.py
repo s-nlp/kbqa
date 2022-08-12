@@ -70,30 +70,6 @@ def _get_accuracy_for_report(report: dict, results_df: pd.DataFrame, top_k: int 
     return report
 
 
-""" 
-def compute_metrics(eval_preds):
-    preds, labels = eval_preds
-
-    # decoding the predictions and labels
-    decoded_preds = tokenizer.batch_decode(preds, skip_special_tokens=True)
-    decoded_labels = tokenizer.batch_decode(labels, skip_special_tokens=True)
-
-    # Some simple post-processing
-    decoded_preds = [pred.strip() for pred in decoded_preds]
-    decoded_labels = [[label.strip()] for label in decoded_labels]
-
-    loss = nn.CrossEntropyLoss()
-    cross_entropy = []
-    for pred, label in zip(decoded_preds, decoded_labels):
-        # getting the redirect for the current label
-        redirects = dbpedia(label)
-        for r in redirects:
-            cross_entropy.append(loss(pred, loss))
-
-    return {"lowest_cross_entropy": min(cross_entropy)}
-"""
-
-
 def make_report(
     model: PreTrainedModel,
     tokenizer: PreTrainedTokenizer,
