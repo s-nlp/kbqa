@@ -2,6 +2,7 @@ from typing import Tuple, Optional
 import datasets
 from seq2seq.utils import load_model_and_tokenizer_by_name, load_kbqa_seq2seq_dataset
 from seq2seq.redirect_trainer import Seq2SeqWikidataRedirectsTrainer
+from caches.wikidata_redirects import WikidataRedirectsCache
 
 from transformers import (
     PreTrainedModel,
@@ -85,12 +86,15 @@ def train(
         gradient_accumulation_steps=gradient_accumulation_steps,
     )
 
+    redirect_cache = WikidataRedirectsCache()
+
     trainer = Seq2SeqWikidataRedirectsTrainer(
         model=model,
         args=training_args,
         train_dataset=dataset["train"],
         eval_dataset=dataset["validation"],
         tokenizer=tokenizer,
+        redirect_cache=redirect_cache,
     )
     trainer.train()
 

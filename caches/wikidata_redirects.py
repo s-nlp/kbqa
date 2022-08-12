@@ -71,16 +71,15 @@ class WikidataRedirectsCache(CacheBase):
             results = ret.convert()
             is_request_good = True
         except Exception:
-            results = ""
             is_request_good = False
 
         if is_request_good is False:
-            return "Problem communicating with the server: ", results
-        elif len(results["results"]["bindings"]) == 0:
+            return "Problem communicating with the server"
+        if len(results["results"]["bindings"]) == 0:
             return "No results found"
-        else:
-            for result in results["results"]["bindings"]:
-                label = result["label"]["value"]
-                rterms.append(label)
+
+        for result in results["results"]["bindings"]:
+            label = result["label"]["value"]
+            rterms.append(label)
 
         return rterms
