@@ -104,7 +104,7 @@ def load_kbqa_seq2seq_dataset(
         dataset_config_name,
         cache_dir=dataset_cache_dir,
         ignore_verifications=True,
-        split=split
+        split=split,
     )
 
     dataset = dataset.filter(lambda example: isinstance(example["object"], str))
@@ -132,6 +132,7 @@ def hf_model_name_mormolize(model_name: str) -> str:
         str: normolized model_name
     """
     return model_name.replace("/", "_")
+
 
 # return the array of redirects
 def dbpedia(term):

@@ -8,6 +8,7 @@ import torch
 import pandas as pd
 from torch.utils.data import DataLoader
 
+
 def predict_answers(
     model: PreTrainedModel,
     tokenizer: PreTrainedTokenizer,
@@ -57,6 +58,7 @@ def predict_answers(
 
     return generated_decoded
 
+
 def _get_accuracy_for_report(report: dict, results_df: pd.DataFrame, top_k: int = 0):
     report[f"num_true_positive_top{top_k}"] = results_df[
         results_df[f"answer_{top_k}"] == results_df["target"]
@@ -67,7 +69,8 @@ def _get_accuracy_for_report(report: dict, results_df: pd.DataFrame, top_k: int 
     )
     return report
 
-''' 
+
+""" 
 def compute_metrics(eval_preds):
     preds, labels = eval_preds
 
@@ -88,7 +91,8 @@ def compute_metrics(eval_preds):
             cross_entropy.append(loss(pred, loss))
 
     return {"lowest_cross_entropy": min(cross_entropy)}
-'''
+"""
+
 
 def make_report(
     model: PreTrainedModel,
