@@ -4,3 +4,5 @@ datasets==2.3.2
 pandas==1.4.3
 pylint==2.14.4
 SPARQLWrapper==2.0.0
+evaluate
+sacrebleu
