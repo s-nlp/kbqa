@@ -162,7 +162,11 @@ disable=raw-checker-failed,
         unspecified-encoding,
         broad-except,
         no-else-return,
-        consider-using-f-string
+        consider-using-f-string,
+        ungrouped-imports,
+        undefined-variable,
+        pointless-statement,
+        unsubscriptable-object,
 
 # Enable the message, report, category or checker with the given id(s). You can
 # either give multiple identifier separated by comma (,) or put this option
@@ -619,3 +623,4 @@ check-quote-consistency=no
 # This flag controls whether the implicit-str-concat should generate a warning
 # on implicit string concatenation in sequences defined over several lines.
 check-str-concat-over-line-jumps=no
+
