@@ -10,6 +10,7 @@ from torch.utils.data import DataLoader
 from caches.wikidata_redirects import WikidataRedirectsCache
 import evaluate
 
+
 def predict_answers(
     model: PreTrainedModel,
     tokenizer: PreTrainedTokenizer,
