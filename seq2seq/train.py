@@ -3,6 +3,7 @@ import datasets
 from seq2seq.utils import load_model_and_tokenizer_by_name, load_kbqa_seq2seq_dataset
 from seq2seq.redirect_trainer import Seq2SeqWikidataRedirectsTrainer
 from caches.wikidata_redirects import WikidataRedirectsCache
+from seq2seq.eval import compute_metrics
 
 from transformers import (
     PreTrainedModel,
@@ -95,7 +96,9 @@ def train(
         eval_dataset=dataset["validation"],
         tokenizer=tokenizer,
         redirect_cache=redirect_cache,
+        compute_metrics=compute_metrics,
     )
     trainer.train()
+    #     trainer.evaluate(max_length=1024)
 
     return trainer, model, dataset
