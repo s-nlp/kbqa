@@ -97,12 +97,15 @@ def load_kbqa_seq2seq_dataset(
     Returns:
         datasets.arrow_dataset.Dataset: Prepared dataset for seq2seq
     """
+
     dataset = datasets.load_dataset(
         dataset_name,
         dataset_config_name,
         cache_dir=dataset_cache_dir,
+        ignore_verifications=True,
         split=split,
     )
+
     dataset = dataset.filter(lambda example: isinstance(example["object"], str))
     dataset = dataset.map(
         lambda batch: convert_to_features(batch, tokenizer),
