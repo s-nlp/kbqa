@@ -10,16 +10,15 @@ class WikidataShortestPathCache(CacheBase):
     """
 
     def __init__(self, cache_dir_path: str = "./cache_store") -> None:
-        self.cache = {}
         super().__init__(cache_dir_path, "wikidata_shortest_paths.pkl")
+        self.cache = {}
+        self.load_from_cache()
 
     def get_shortest_path(self, item1, item2):
         if item1 is None or item2 is None:
             return None
 
-        key = [item1, item2]
-        key = sorted(key)
-        key = tuple(key)
+        key = (item1, item2)
 
         if key in self.cache:
             return self.cache[key]
