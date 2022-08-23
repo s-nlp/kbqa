@@ -52,6 +52,41 @@ parser.add_argument(
     default=8,
     type=int,
 )
+parser.add_argument(
+    "--num_beams",
+    default=500,
+    help="Numbers of beams for Beam search (only for eval mode)",
+    type=int,
+)
+parser.add_argument(
+    "--num_return_sequences",
+    default=500,
+    help=(
+        "Numbers of return sequencese from Beam search (only for eval mode)."
+        " Must be less or equal to num_beams"
+    ),
+    type=int,
+)
+parser.add_argument(
+    "--num_beam_groups",
+    default=50,
+    help=(
+        "Number of groups to divide num_beams into in order to ensure diversity "
+        "among different groups of beams (only for eval mode). "
+        "Diverse Beam Search alghoritm "
+    ),
+    type=int,
+)
+parser.add_argument(
+    "--diversity_penalty",
+    default=0.1,
+    help=(
+        "This value is subtracted from a beam's score if it generates "
+        "a token same as any beam from other group at a particular time. "
+        "Note that diversity_penalty is only effective if group beam search is enabled."
+    ),
+    type=float,
+)
 
 
 def get_model_logging_dirs(save_dir, model_name):
@@ -103,14 +138,23 @@ def evaluate(args):
         tokenizer=tokenizer,
         dataset=dataset,
         batch_size=args.per_device_train_batch_size,
+        num_beams=args.num_beams,
+        num_return_sequences=args.num_return_sequences,
+        num_beam_groups=args.num_beam_groups,
+        diversity_penalty=args.diversity_penalty,
         device=device,
     )
 
     eval_report_dir = Path(args.save_dir) / "evaluation" / normolized_model_name.name
+    number_of_versions = len(list(eval_report_dir.glob("version_*")))
+    eval_report_dir = eval_report_dir / f"version_{number_of_versions}"
     eval_report_dir.mkdir(parents=True, exist_ok=True)
+
     results_df.to_csv(eval_report_dir / "results.csv", index=False)
     with open(eval_report_dir / "report.json", "w", encoding=None) as file_handler:
         json.dump(report, file_handler)
+    with open(eval_report_dir / "args.json", "w", encoding=True) as file_handler:
+        json.dump(vars(args), file_handler)
 
     print(report)
     print(f"Report dumped to {eval_report_dir}")
