@@ -11,3 +11,4 @@ pywikibot
 mwparserfromhell>=0.5.0
 joblib==1.1.0
 evaluate==0.2.2
+networkx==2.8.6
