@@ -7,16 +7,16 @@ from seq2seq.eval import compute_metrics
 
 from transformers import (
     PreTrainedModel,
+    PreTrainedTokenizer,
     Seq2SeqTrainer,
     Seq2SeqTrainingArguments,
 )
 
 
 def train(
-    model_name: str,
-    dataset_name: str,
-    dataset_config_name: str,
-    dataset_cache_dir: Optional[str] = None,
+    model: PreTrainedModel,
+    tokenizer: PreTrainedTokenizer,
+    dataset: datasets.Dataset,
     output_dir: str = "./runs/models/model",
     logging_dir: str = "./runs/logs/model",
     save_total_limit: int = 5,
@@ -29,15 +29,15 @@ def train(
     eval_steps: int = 500,
     logging_steps: int = 500,
     gradient_accumulation_steps: int = 8,
+    trainer_mode: str = 'default',
 ) -> Tuple[Seq2SeqTrainer, PreTrainedModel, datasets.arrow_dataset.Dataset]:
     """train seq2seq model for KBQA problem
     Work with HF dataset with object and question field (str)
 
     Args:
-        model_name (str): HF seq2seq model: SEQ2SEQ_AVAILABLE_HF_PRETRAINED_MODEL_NAMES
-        dataset_name (str): name or path to HF dataset with str fields: object, question
-        dataset_config_name (str): HF dataset config name
-        dataset_cache_dir (str, optional): Path to HF cache. Defaults to None.
+        model: (PreTrainedModel): HF Model for training
+        tokenizer: (PreTrainedTokenizer): HF Tokenizer for training (provided with model usually)
+        dataset (datasets.Dataset): HF Dataset object with 'train' and 'validation'
         output_dir (str): Path to directory for storing model's checkpoints . Defaults to './runs/models/model'
         logging_dir (str): Path to directory for storing traning logs . Defaults to './runs/logs/model'
         save_total_limit (int, optional): Total limit for storing model's checkpoints. Defaults to 5.
@@ -59,17 +59,16 @@ def train(
             Number of update steps between two logs if logging_strategy="steps".
             Defaults to 500.
         gradient_accumulation_steps (int, optional):
-             Number of updates steps to accumulate the gradients for, before performing a backward/update pass.
-             Defaults to 8.
+            Number of updates steps to accumulate the gradients for, before performing a backward/update pass.
+            Defaults to 8.
+        trainer_mode (str, optional):
+            trainer mode, as a default will used Seq2SeqTrainer, but if provided  
+            Seq2SeqWikidataRedirectsTrainer, that it will used.
+            Default to 'default'
 
     Returns:
         Tuple[Seq2SeqTrainer, PreTrainedModel, datasets.arrow_dataset.Dataset]: _description_
     """
-    model, tokenizer = load_model_and_tokenizer_by_name(model_name)
-
-    dataset = load_kbqa_seq2seq_dataset(
-        dataset_name, dataset_config_name, tokenizer, dataset_cache_dir
-    )
     training_args = Seq2SeqTrainingArguments(
         output_dir=output_dir,
         save_total_limit=save_total_limit,
@@ -89,16 +88,30 @@ def train(
 
     redirect_cache = WikidataRedirectsCache()
 
-    trainer = Seq2SeqWikidataRedirectsTrainer(
-        model=model,
-        args=training_args,
-        train_dataset=dataset["train"],
-        eval_dataset=dataset["validation"],
-        tokenizer=tokenizer,
-        redirect_cache=redirect_cache,
-        compute_metrics=compute_metrics,
-    )
+    if trainer_mode == 'default':
+        trainer = Seq2SeqTrainer(
+            model=model,
+            args=training_args,
+            train_dataset=dataset["train"],
+            eval_dataset=dataset["validation"],
+            tokenizer=tokenizer,
+        )
+    elif trainer_mode == 'Seq2SeqWikidataRedirectsTrainer':
+        trainer = Seq2SeqWikidataRedirectsTrainer(
+            model=model,
+            args=training_args,
+            train_dataset=dataset["train"],
+            eval_dataset=dataset["validation"],
+            tokenizer=tokenizer,
+            redirect_cache=redirect_cache,
+            compute_metrics=compute_metrics,
+        )
+    else:
+        raise ValueError(
+            'trainer_mode must be "default" or "Seq2SeqWikidataRedirectsTrainer", '
+            f'but provided {trainer_mode}'
+        )
+
     trainer.train()
-    #     trainer.evaluate(max_length=1024)
 
     return trainer, model, dataset

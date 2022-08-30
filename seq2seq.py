@@ -87,6 +87,14 @@ parser.add_argument(
     ),
     type=float,
 )
+parser.add_argument(
+    '--trainer_mode',
+    default='default',
+    help=(
+        'trainer mode, as a default will used Seq2SeqTrainer, but if provided ' 
+        'Seq2SeqWikidataRedirectsTrainer, that it will used.'
+    )
+)
 
 
 def get_model_logging_dirs(save_dir, model_name):
@@ -100,17 +108,26 @@ def get_model_logging_dirs(save_dir, model_name):
 def train(args):
     output_dir, logging_dir, _ = get_model_logging_dirs(args.save_dir, args.model_name)
 
+    model, tokenizer = load_model_and_tokenizer_by_name(args.model_name)
+
+    dataset = load_kbqa_seq2seq_dataset(
+        args.dataset_name,
+        args.dataset_config_name,
+        tokenizer,
+        args.dataset_cache_dir
+    )
+
     train_seq2seq(
-        model_name=args.model_name,
-        dataset_name=args.dataset_name,
-        dataset_config_name=args.dataset_config_name,
-        dataset_cache_dir=args.dataset_cache_dir,
+        model=model,
+        tokenizer=tokenizer,
+        dataset=dataset,
         output_dir=output_dir,
         logging_dir=logging_dir,
         num_train_epochs=args.num_train_epochs,
         per_device_train_batch_size=args.per_device_train_batch_size,
         eval_steps=args.eval_steps,
         logging_steps=args.logging_steps,
+        trainer_mode=args.trainer_mode,
     )
 
 
@@ -153,7 +170,7 @@ def evaluate(args):
     results_df.to_csv(eval_report_dir / "results.csv", index=False)
     with open(eval_report_dir / "report.json", "w", encoding=None) as file_handler:
         json.dump(report, file_handler)
-    with open(eval_report_dir / "args.json", "w", encoding=True) as file_handler:
+    with open(eval_report_dir / "args.json", "w", encoding=None) as file_handler:
         json.dump(vars(args), file_handler)
 
     print(report)
