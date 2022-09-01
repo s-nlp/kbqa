@@ -5,6 +5,7 @@ import datasets
 from typing import Dict, Tuple
 from pathlib import Path
 from config import SEQ2SEQ_AVAILABLE_HF_PRETRAINED_MODEL_NAMES
+from caches.wikidata_redirects import WikidataRedirectsCache
 
 
 def load_model_and_tokenizer_by_name(
@@ -40,6 +41,37 @@ def load_model_and_tokenizer_by_name(
         )
 
     return model, tokenizer
+
+
+def augmentation_by_redirects(
+    example_batch: Dict, wikidata_redirects: WikidataRedirectsCache
+):
+    """augmentation_by_redirects function for HF dataset for applying augmentation
+    by adding all possible redirects for labels
+
+    Args:
+        example_batch (Dict): HF Dataset batch
+        wikidata_redirects (WikidataRedirectsCache): Service for extracting redirects
+    """
+    outputs = {
+        "subject": [],
+        "property": [],
+        "object": [],
+        "question": [],
+    }
+    for idx in range(len(example_batch["object"])):
+        outputs["subject"].append(example_batch["subject"][idx])
+        outputs["property"].append(example_batch["property"][idx])
+        outputs["object"].append(example_batch["object"][idx])
+        outputs["question"].append(example_batch["question"][idx])
+
+        for redirect in wikidata_redirects.get_redirects(example_batch["object"][idx]):
+            outputs["subject"].append(example_batch["subject"][idx])
+            outputs["property"].append(example_batch["property"][idx])
+            outputs["object"].append(redirect)
+            outputs["question"].append(example_batch["question"][idx])
+
+    return outputs
 
 
 def convert_to_features(example_batch: Dict, tokenizer: PreTrainedTokenizer) -> Dict:
@@ -82,6 +114,7 @@ def load_kbqa_seq2seq_dataset(
     tokenizer: PreTrainedTokenizer,
     dataset_cache_dir: str = None,
     split: str = None,
+    apply_redirects_augmentation: bool = False,
 ) -> datasets.arrow_dataset.Dataset:
     """load_kbqa_seq2seq_dataset - helper for load dataset for seq2seq KBQA
 
@@ -93,6 +126,8 @@ def load_kbqa_seq2seq_dataset(
         split (str, optional):
             Load only train/validation/test split of dataset if passed, else load all.
             Defaults to None
+        apply_redirects_augmentation (bool, optional): Using wikidata redirect for augmention,
+            Defaults to False
 
     Returns:
         datasets.arrow_dataset.Dataset: Prepared dataset for seq2seq
@@ -105,8 +140,13 @@ def load_kbqa_seq2seq_dataset(
         ignore_verifications=True,
         split=split,
     )
-
     dataset = dataset.filter(lambda example: isinstance(example["object"], str))
+    if apply_redirects_augmentation:
+        wikidata_redirects = WikidataRedirectsCache()
+        dataset["train"] = dataset["train"].map(
+            lambda batch: augmentation_by_redirects(batch, wikidata_redirects),
+            batched=True,
+        )
     dataset = dataset.map(
         lambda batch: convert_to_features(batch, tokenizer),
         batched=True,

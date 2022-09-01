@@ -15,12 +15,14 @@ from seq2seq.utils import (
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
-    "mode",
+    "--mode",
+    default="train",
     choices=["train", "eval"],
     help="Choose mode for working, train or evaluate/analyze fited model",
 )
 parser.add_argument(
-    "model_name",
+    "--model_name",
+    default="t5-base",
     choices=SEQ2SEQ_AVAILABLE_HF_PRETRAINED_MODEL_NAMES,
 )
 parser.add_argument("--dataset_name", default="../wikidata_simplequestions/")
@@ -88,12 +90,18 @@ parser.add_argument(
     type=float,
 )
 parser.add_argument(
-    '--trainer_mode',
-    default='default',
+    "--trainer_mode",
+    default="default",
     help=(
-        'trainer mode, as a default will used Seq2SeqTrainer, but if provided ' 
-        'Seq2SeqWikidataRedirectsTrainer, that it will used.'
-    )
+        "trainer mode, as a default will used Seq2SeqTrainer, but if provided "
+        "Seq2SeqWikidataRedirectsTrainer, that it will used."
+    ),
+)
+parser.add_argument(
+    "--apply_redirects_augmentation",
+    default=True,
+    help="Using Wikidata redirects for augmenting train dataset. Do not use with Seq2SeqWikidataRedirectsTrainer",
+    type=bool,
 )
 
 
@@ -114,7 +122,8 @@ def train(args):
         args.dataset_name,
         args.dataset_config_name,
         tokenizer,
-        args.dataset_cache_dir
+        args.dataset_cache_dir,
+        apply_redirects_augmentation=args.apply_redirects_augmentation,
     )
 
     train_seq2seq(
@@ -181,6 +190,14 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if args.mode == "train":
+        if (
+            args.apply_redirects_augmentation is True
+            and args.trainer_mode == "Seq2SeqWikidataRedirectsTrainer"
+        ):
+            raise ValueError(
+                "Do not use apply_redirects_augmentation with Seq2SeqWikidataRedirectsTrainer - trash data"
+            )
+
         train(args)
     elif args.mode == "eval":
         evaluate(args)
