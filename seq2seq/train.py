@@ -1,6 +1,5 @@
-from typing import Tuple, Optional
+from typing import Tuple
 import datasets
-from seq2seq.utils import load_model_and_tokenizer_by_name, load_kbqa_seq2seq_dataset
 from seq2seq.redirect_trainer import Seq2SeqWikidataRedirectsTrainer
 from caches.wikidata_redirects import WikidataRedirectsCache
 from seq2seq.eval import compute_metrics
@@ -29,7 +28,7 @@ def train(
     eval_steps: int = 500,
     logging_steps: int = 500,
     gradient_accumulation_steps: int = 8,
-    trainer_mode: str = 'default',
+    trainer_mode: str = "default",
 ) -> Tuple[Seq2SeqTrainer, PreTrainedModel, datasets.arrow_dataset.Dataset]:
     """train seq2seq model for KBQA problem
     Work with HF dataset with object and question field (str)
@@ -62,7 +61,7 @@ def train(
             Number of updates steps to accumulate the gradients for, before performing a backward/update pass.
             Defaults to 8.
         trainer_mode (str, optional):
-            trainer mode, as a default will used Seq2SeqTrainer, but if provided  
+            trainer mode, as a default will used Seq2SeqTrainer, but if provided
             Seq2SeqWikidataRedirectsTrainer, that it will used.
             Default to 'default'
 
@@ -86,9 +85,7 @@ def train(
         gradient_accumulation_steps=gradient_accumulation_steps,
     )
 
-    redirect_cache = WikidataRedirectsCache()
-
-    if trainer_mode == 'default':
+    if trainer_mode == "default":
         trainer = Seq2SeqTrainer(
             model=model,
             args=training_args,
@@ -96,7 +93,9 @@ def train(
             eval_dataset=dataset["validation"],
             tokenizer=tokenizer,
         )
-    elif trainer_mode == 'Seq2SeqWikidataRedirectsTrainer':
+    elif trainer_mode == "Seq2SeqWikidataRedirectsTrainer":
+        redirect_cache = WikidataRedirectsCache()
+
         trainer = Seq2SeqWikidataRedirectsTrainer(
             model=model,
             args=training_args,
@@ -109,7 +108,7 @@ def train(
     else:
         raise ValueError(
             'trainer_mode must be "default" or "Seq2SeqWikidataRedirectsTrainer", '
-            f'but provided {trainer_mode}'
+            f"but provided {trainer_mode}"
         )
 
     trainer.train()
