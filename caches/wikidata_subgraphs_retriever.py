@@ -32,32 +32,73 @@ class SubgraphsRetriever(CacheBase):
         self.edge_between_path = edge_between_path
         self.lang = lang
 
-    def get_paths(self, entities, candidate):
+    def get_path(self, entity, candidate):
         """
-        return the shortest paths from the given entity to the candidate
+        return the shortest path from the given entity to the candidate
+        """
+        path = self.shortest_path.get_shortest_path(entity, candidate)
+        path_clean = []
+
+        # extracting the entity ID only
+        for node in path:
+            entity_id = node.split("/")[-1]
+            print(entity_id)
+            # in case we see nodes like P136-blah-blah
+            entity_id = entity_id.split("-")[0]
+            path_clean.append(entity_id)
+        return path_clean
+
+    def get_paths(self, e_1, e_2):
+        """
+        return all shortest paths from the given entity to the candidate
         """
         paths = []
-        for entity in entities:
-            path = self.shortest_path.get_shortest_path(entity, candidate)
-            path_clean = []
 
-            # extracting the entity ID only
-            for node in path:
-                path_clean.append(node.split("/")[-1])
-            paths.append(path_clean)
+        if isinstance(e_1, list):  # entity2candidate
+            entities = e_1
+            candidate = e_2
+            for entity in entities:
+                paths.append(self.get_path(entity, candidate))
+        else:  # candidate2entity
+            candidate = e_1
+            entities = e_2
+            for entity in entities:
+                paths.append(self.get_path(entity=candidate, candidate=entity))
+
         return paths
+
+    def get_undirected_shortest_path(self, entity2candidate, candidate2entity):
+        """
+        return the shortest paths in both direction
+        """
+        res = []
+        for e2c, c2e in zip(entity2candidate, candidate2entity):
+            if not e2c and not c2e:
+                raise Exception("NO SHORTEST PATH FOUND")
+
+            if e2c and c2e:
+                # see which path is shorter
+                shorter_path = e2c if len(e2c) < len(c2e) else c2e
+            else:
+                # shorter path is the non empty list
+                shorter_path = e2c if not c2e else c2e
+            res.append(shorter_path)
+        return res
 
     def get_subgraph(self, entities, candidate):
         """
         extract subgraphs given all shortest paths and candidate
         """
-        paths = self.get_paths(entities, candidate)
+        entity2candidate = self.get_paths(entities, candidate)
+        candidate2entity = self.get_paths(candidate, entities)
+
+        paths = self.get_undirected_shortest_path(entity2candidate, candidate2entity)
 
         if self.edge_between_path is True:
             res = self.subgraph_with_connection(paths)
         else:
             res = self.subgraph_without_connection(paths)
-        print(res)
+
         return res
 
     def subgraph_with_connection(self, paths):
