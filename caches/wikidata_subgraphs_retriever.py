@@ -48,23 +48,17 @@ class SubgraphsRetriever(CacheBase):
             path_clean.append(entity_id)
         return path_clean
 
-    def get_paths(self, node_1, node_2):
+    def get_paths(self, entities, candidate, is_entities2candidate):
         """
         return ALL shortest paths from the given entities->candidate
         or candidate->entities.
         """
         paths = []
 
-        # if our node_1 is a list, we are dealing with entities->candidate
-        if isinstance(node_1, list):  # entity2candidate
-            entities = node_1
-            candidate = node_2
-            for entity in entities:
+        for entity in entities:
+            if is_entities2candidate is True:  # entity2candidate
                 paths.append(self.get_path(entity=entity, candidate=candidate))
-        else:  # candidate2entity
-            candidate = node_1
-            entities = node_2
-            for entity in entities:
+            else:  # candidate2entity
                 paths.append(self.get_path(entity=candidate, candidate=entity))
 
         return paths
@@ -95,8 +89,12 @@ class SubgraphsRetriever(CacheBase):
         extract subgraphs given all shortest paths and candidate
         """
         # checking the shortests paths from both directions
-        entity2candidate = self.get_paths(entities, candidate)
-        candidate2entity = self.get_paths(candidate, entities)
+        entity2candidate = self.get_paths(
+            entities, candidate, is_entities2candidate=True
+        )
+        candidate2entity = self.get_paths(
+            entities, candidate, is_entities2candidate=False
+        )
 
         # given the shortest paths from both direction, find the shorter path
         paths = self.get_undirected_shortest_path(entity2candidate, candidate2entity)
