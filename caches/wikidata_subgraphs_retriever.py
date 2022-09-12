@@ -34,7 +34,8 @@ class SubgraphsRetriever(CacheBase):
 
     def get_path(self, entity, candidate):
         """
-        return the shortest path from the given entity to the candidate
+        given 1 entity to 1 candidate, return the shortest path from
+        said entity->candidate
         """
         path = self.shortest_path.get_shortest_path(entity, candidate)
         path_clean = []
@@ -42,40 +43,44 @@ class SubgraphsRetriever(CacheBase):
         # extracting the entity ID only
         for node in path:
             entity_id = node.split("/")[-1]
-            print(entity_id)
             # in case we see nodes like P136-blah-blah
             entity_id = entity_id.split("-")[0]
             path_clean.append(entity_id)
         return path_clean
 
-    def get_paths(self, e_1, e_2):
+    def get_paths(self, node_1, node_2):
         """
-        return all shortest paths from the given entity to the candidate
+        return ALL shortest paths from the given entities->candidate
+        or candidate->entities.
         """
         paths = []
 
-        if isinstance(e_1, list):  # entity2candidate
-            entities = e_1
-            candidate = e_2
+        # if our node_1 is a list, we are dealing with entities->candidate
+        if isinstance(node_1, list):  # entity2candidate
+            entities = node_1
+            candidate = node_2
             for entity in entities:
-                paths.append(self.get_path(entity, candidate))
+                paths.append(self.get_path(entity=entity, candidate=candidate))
         else:  # candidate2entity
-            candidate = e_1
-            entities = e_2
+            candidate = node_1
+            entities = node_2
             for entity in entities:
                 paths.append(self.get_path(entity=candidate, candidate=entity))
 
         return paths
 
-    def get_undirected_shortest_path(self, entity2candidate, candidate2entity):
+    def get_undirected_shortest_path(self, entities2candidate, candidate2entities):
         """
-        return the shortest paths in both direction
+        given the shortest path from entities->candidate and candidate->entities,
+        return the shorter paths, thus will be shortest paths in BOTH direction
         """
         res = []
-        for e2c, c2e in zip(entity2candidate, candidate2entity):
+        for e2c, c2e in zip(entities2candidate, candidate2entities):
+            # if we get both NULL results, there is no shortest paths
             if not e2c and not c2e:
                 raise Exception("NO SHORTEST PATH FOUND")
 
+            # e2c and c2e both returns non NULL results
             if e2c and c2e:
                 # see which path is shorter
                 shorter_path = e2c if len(e2c) < len(c2e) else c2e
@@ -89,9 +94,11 @@ class SubgraphsRetriever(CacheBase):
         """
         extract subgraphs given all shortest paths and candidate
         """
+        # checking the shortests paths from both directions
         entity2candidate = self.get_paths(entities, candidate)
         candidate2entity = self.get_paths(candidate, entities)
 
+        # given the shortest paths from both direction, find the shorter path
         paths = self.get_undirected_shortest_path(entity2candidate, candidate2entity)
 
         if self.edge_between_path is True:
