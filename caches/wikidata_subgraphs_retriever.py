@@ -215,19 +215,21 @@ class SubgraphsRetriever(CacheBase):
         color_map = []
         for node in graph:
             if node == candidate:
-                color_map.append("red")
+                color_map.append("coral")
             elif node in entities:
-                color_map.append("green")
+                color_map.append("deepskyblue")
             else:
-                color_map.append("pink")
+                color_map.append("lightgray")
 
         nx.draw(
             graph,
             pos,
             edge_color="black",
             arrowsize=10,
-            node_size=300,
+            node_size=600,
             node_color=color_map,
+            font_weight="bold",
+            font_size=14,
             alpha=0.9,
             labels={node: self.entity2label.get_label(node) for node in graph.nodes()},
         )
@@ -240,6 +242,7 @@ class SubgraphsRetriever(CacheBase):
                 for edge, weight in labels.items()
             },
             font_color="red",
+            font_weight="bold",
         )
         plt.axis("off")
 
