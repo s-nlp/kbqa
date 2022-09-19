@@ -9,14 +9,12 @@ class GENREWikidataEntityesCache(CacheBase):
     def __init__(
         self,
         mgenre_model,
-        reverse_vocab_wikidata,
         trie,
         lang_title_to_wikidata_id,
         cache_dir_path: str = "./cache_store",
     ) -> None:
         super().__init__(cache_dir_path, "genre_wikidata_entities_vocab.pkl")
         self.mgenre_model = mgenre_model
-        self.reverse_vocab_wikidata = reverse_vocab_wikidata
         self.trie = trie
         self.lang_title_to_wikidata_id = lang_title_to_wikidata_id
         self.cache = {}
@@ -47,7 +45,7 @@ class GENREWikidataEntityesCache(CacheBase):
         sentences,
         beam=10,
     ):
-        generated_entities_batched = self.mgenre_model.sample(
+        return self.mgenre_model.sample(
             sentences,
             beam=beam,
             prefix_allowed_tokens_fn=lambda batch_id, sent: [
@@ -62,19 +60,3 @@ class GENREWikidataEntityesCache(CacheBase):
             marginalize=True,
             verbose=True,
         )
-        entities_wikidata_from_mgenre = []
-
-        for generated_entities in generated_entities_batched:
-            entities_wikidata = {}
-            for entity in generated_entities:
-                entity_natural = entity["texts"][0].split(" >> ")[0]
-                entities_wikidata[
-                    self.reverse_vocab_wikidata.get(entity_natural)
-                ] = entity_natural
-
-            if None in entities_wikidata:
-                del entities_wikidata[None]
-
-            entities_wikidata_from_mgenre.append(entities_wikidata)
-
-        return entities_wikidata_from_mgenre
