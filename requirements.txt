@@ -1,6 +1,5 @@
-torch==1.12.0
-transformers==4.20.1
-datasets==2.3.2
+torch==1.12.1
+transformers==4.21.0
 pandas==1.4.3
 pylint==2.14.4
 SPARQLWrapper==2.0.0
@@ -13,3 +12,8 @@ joblib==1.1.0
 evaluate==0.2.2
 networkx
 matplotlib
+unidecode
+requests
+bs4
+marisa_trie
+jupyterlab
