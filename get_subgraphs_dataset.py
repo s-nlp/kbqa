@@ -8,7 +8,9 @@ from caches.genre import GENREWikidataEntityesCache
 from subgraphs_dataset.question_entities_candidate import QuestionEntitiesCandidates
 from caches.wikidata_subgraphs_retriever import SubgraphsRetriever
 from caches.wikidata_shortest_path import WikidataShortestPathCache
-from caches.wikidata_label_to_entity import WikidataLableToEntity # pylint: disable=import-error,import-error
+from caches.wikidata_label_to_entity import (
+    WikidataLableToEntity,
+)  # pylint: disable=import-error,import-error
 from genre.trie import Trie, MarisaTrie  # pylint: disable=unused-import,import-error
 import warnings
 
