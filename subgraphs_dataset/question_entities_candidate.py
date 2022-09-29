@@ -5,29 +5,11 @@ class QuestionEntitiesCandidates:
 
     def __init__(self, question: str):
         self.question = question
-        self._entities = None
-        self._candidates = None
-        self._original_entities = None
-
-    @property
-    def entities(self):
-        return self._entities
-
-    @property
-    def candidates(self):
-        return self._candidates
-
-    @property
-    def original_entities(self):
-        return self._original_entities
-
-    @entities.setter
-    def entities(self, new_entities):
-        self._entities = new_entities
-
-    @candidates.setter
-    def candidates(self, new_candidates):
-        self._candidates = new_candidates
+        self.entity_texts = []
+        self.entity_ids = []
+        self.candidate_texts = []
+        self.candidate_ids = []
+        self.original_entities = None
 
     def get_entities(self, dirty_entities, lang):
         """
@@ -35,10 +17,10 @@ class QuestionEntitiesCandidates:
         based on the language
         """
         # in case we need the scores in the future
-        self._original_entities = dirty_entities
+        self.original_entities = dirty_entities
 
-        en_entities = []
         for entity in dirty_entities:
+            entity_id = entity["id"]
             entity_text = entity["texts"]
             entity_text_en = None
 
@@ -53,12 +35,25 @@ class QuestionEntitiesCandidates:
                 if text[-1].strip() == lang:
                     entity_text_en = text[0].strip()
             if entity_text_en is not None:
-                en_entities.append(entity_text_en)
-        return en_entities
+                self.entity_texts.append(entity_text_en)
+
+            self.entity_ids.append(entity_id)
+
+    def populate_candidates(self, candidate_texts, label2entity):
+        """
+        given the list of natural language candidates, set both texts
+        and id's in our class
+        """
+        self.candidate_texts = candidate_texts
+
+        # get the candidate id
+        for candidate in candidate_texts:
+            curr_id = label2entity.get_id(candidate)
+            self.candidate_ids.append(curr_id)
 
     def display(self):
         print()
         print("question:", self.question)
-        print("entities:", self._entities)
-        print("candidates:", self._candidates)
+        print("entities:", self.entity_ids)
+        print("candidates:", self.candidate_ids)
         print()
