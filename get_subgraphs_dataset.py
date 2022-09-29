@@ -2,13 +2,14 @@ import pandas as pd
 import pickle
 import torch
 import argparse
-from genre.fairseq_model import mGENRE
+from genre.fairseq_model import mGENRE # pylint: disable=import-error
 from caches.wikidata_entity_to_label import WikidataEntityToLabel
 from caches.genre import GENREWikidataEntityesCache
 from subgraphs_dataset.question_entities_candidate import QuestionEntitiesCandidates
 from caches.wikidata_subgraphs_retriever import SubgraphsRetriever
 from caches.wikidata_shortest_path import WikidataShortestPathCache
-
+from caches.wikidata_label_to_entity import WikidataLableToEntity
+from genre.trie import Trie, MarisaTrie # pylint: disable=unused-import
 import warnings
 
 warnings.filterwarnings("ignore", category=DeprecationWarning)
@@ -27,7 +28,7 @@ def get_csv(num_ans: int):
     """
     df = pd.read_csv("./results.csv")
     df = df.iloc[:, : num_ans + 3]  # only selecting 50 bad answers
-    return df.head()
+    return df.head(1)
 
 
 def preprocess_question(question):
@@ -42,10 +43,14 @@ def load_pkl():
     """
     load the needed pkl files
     """
-    with open("./lang_title_wikidata_id-normalized_with_redirect.pkl", "rb") as f:
+    with open(
+        "/workspace/kbqa/lang_title2wikidataID-normalized_with_redirect.pkl", "rb"
+    ) as f:
         lang_title_wikidata_id = pickle.load(f)
 
-    with open("./titles_lang_all105_marisa_trie_with_redirect.pkl", "rb") as f:
+    with open(
+        "/workspace/kbqa/titles_lang_all105_marisa_trie_with_redirect.pkl", "rb"
+    ) as f:
         trie = pickle.load(f)
 
     print("finished loading pkl")
@@ -58,7 +63,7 @@ def load_model():
     """
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = mGENRE.from_pretrained(
-        "./fairseq_multilingual_entity_disambiguation"
+        "/workspace/kbqa/fairseq_multilingual_entity_disambiguation"
     ).eval()
     model.to(device)
     print("mGENRE loaded")
@@ -83,14 +88,13 @@ def get_question_entities(
     for idx, generated_entities in enumerate(generated_entities_batched):
         # creating a new question, fetch the english entities of the question
         new_question = QuestionEntitiesCandidates(df["question"][idx])
-        curr_question_entities = new_question.get_entities(generated_entities, "en")
-        new_question.entities = curr_question_entities
+        new_question.get_entities(generated_entities, "en")
         questions_entities_candidates.append(new_question)
 
     return questions_entities_candidates
 
 
-def get_question_candidate(df, questions_entities_candidates):
+def get_question_candidate(df, questions_entities_candidates, label2entity):
     """
     get the candidates of all our questions
     """
@@ -101,7 +105,9 @@ def get_question_candidate(df, questions_entities_candidates):
     for row_idx in range(num_rows):
         candidates = candidates_df.loc[row_idx]
         candidates = list(candidates.to_numpy())
-        questions_entities_candidates[row_idx].candidates = candidates
+        questions_entities_candidates[row_idx].populate_candidates(
+            candidates, label2entity
+        )
         questions_entities_candidates[row_idx].display()
 
     return questions_entities_candidates
@@ -113,11 +119,12 @@ def get_subgraphs(questions_entities_candidates, subgraph_obj):
     """
     subgraphs = []
     for question in questions_entities_candidates:
-        candidates = question.candidates
-        entities = question.entities
+        candidates = question.candidate_ids
+        entities = question.entity_ids
 
         for candidate in candidates:
             subgraph = subgraph_obj.get_subgraph(entities, candidate)
+            print(subgraph)
             subgraphs.append(subgraph)
 
     return subgraphs
@@ -157,8 +164,9 @@ if __name__ == "__main__":
         df, questions_entities_candidates, model, trie, lang_title_wikidata_id
     )
 
+    label2entity = WikidataLableToEntity()
     questions_entities_candidates = get_question_candidate(
-        df, questions_entities_candidates
+        df, questions_entities_candidates, label2entity
     )
 
     # getting our subgraphs and writing it to the pkl files
