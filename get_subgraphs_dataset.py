@@ -2,14 +2,14 @@ import pandas as pd
 import pickle
 import torch
 import argparse
-from genre.fairseq_model import mGENRE # pylint: disable=import-error
+from genre.fairseq_model import mGENRE  # pylint: disable=import-error
 from caches.wikidata_entity_to_label import WikidataEntityToLabel
 from caches.genre import GENREWikidataEntityesCache
 from subgraphs_dataset.question_entities_candidate import QuestionEntitiesCandidates
 from caches.wikidata_subgraphs_retriever import SubgraphsRetriever
 from caches.wikidata_shortest_path import WikidataShortestPathCache
 from caches.wikidata_label_to_entity import WikidataLableToEntity
-from genre.trie import Trie, MarisaTrie # pylint: disable=unused-import
+from genre.trie import Trie, MarisaTrie  # pylint: disable=unused-import
 import warnings
 
 warnings.filterwarnings("ignore", category=DeprecationWarning)
