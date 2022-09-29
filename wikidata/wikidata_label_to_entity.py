@@ -5,14 +5,18 @@
 import time
 import logging
 import requests
-from caches.base import CacheBase
+from wikidata.base import WikidataBase
 
 
-class WikidataLabelToEntity(CacheBase):
+class WikidataLabelToEntity(WikidataBase):
     """WikidataEntityToLabel - class for request label of any wikidata entities with cahce"""
 
-    def __init__(self, cache_dir_path: str = "./cache_store_entity_id") -> None:
-        super().__init__(cache_dir_path, "wikidata_entity_to_id.pkl")
+    def __init__(
+        self,
+        cache_dir_path: str = "./cache_store_entity_id",
+        sparql_endpoint: str = None,
+    ) -> None:
+        super().__init__(cache_dir_path, "wikidata_entity_to_id.pkl", sparql_endpoint)
         self.cache = {}
         self.load_from_cache()
 
@@ -25,14 +29,15 @@ class WikidataLabelToEntity(CacheBase):
         return self.cache.get(entity_name)
 
     def _request_wikidata(self, entity_name):
-        url = "https://query.wikidata.org/sparql"
         query = """
-        SELECT distinct ?item ?itemLabel ?itemDescription WHERE{
-        ?item ?label "<ENTITY_NAME>"@en.
-        ?article schema:about ?item .
-        ?article schema:inLanguage "en" .
-        ?article schema:isPartOf <https://en.wikipedia.org/>.
-        SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
+        PREFIX schema: <http://schema.org/>
+        PREFIX wikibase: <http://wikiba.se/ontology#>
+
+        SELECT ?item WHERE{
+                ?item ?label "<ENTITY_NAME>"@en.
+                ?article schema:about ?item .
+                ?article schema:inLanguage "en" .
+                ?article schema:isPartOf <https://en.wikipedia.org/>
         }
         """.replace(
             "<ENTITY_NAME>", entity_name
@@ -41,7 +46,10 @@ class WikidataLabelToEntity(CacheBase):
         def _try_request(query, url):
             try:
                 request = requests.get(
-                    url, params={"format": "json", "query": query}, timeout=20
+                    url,
+                    params={"format": "json", "query": query},
+                    timeout=20,
+                    headers={"Accept": "application/json"},
                 )
                 data = request.json()
 
@@ -59,4 +67,4 @@ class WikidataLabelToEntity(CacheBase):
                 time.sleep(60)
                 return _try_request(query, url)
 
-        return _try_request(query, url)
+        return _try_request(query, self.sparql_endpoint)

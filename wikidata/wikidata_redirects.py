@@ -1,15 +1,19 @@
 from SPARQLWrapper import SPARQLWrapper, JSON
 from typing import List
-from caches.base import CacheBase
+from wikidata.base import WikidataBase
 
 
-class WikidataRedirectsCache(CacheBase):
+class WikidataRedirectsCache(WikidataBase):
     """WikidataRedirectsCache - Helper class for Wikidata Redirects
     request redirects from wikidata and store results to cache
     """
 
-    def __init__(self, cache_dir_path: str = "./cache_store") -> None:
-        super().__init__(cache_dir_path, "wikidata_redirects.pkl")
+    def __init__(
+        self,
+        cache_dir_path: str = "./cache_store",
+        sparql_endpoint: str = "http://dbpedia.org/sparql",
+    ) -> None:
+        super().__init__(cache_dir_path, "wikidata_redirects.pkl", sparql_endpoint)
         self.cache = {}
 
     def get_redirects(self, term: str) -> List[str]:
@@ -62,7 +66,7 @@ class WikidataRedirectsCache(CacheBase):
 
         nquery = query.replace("VALUE", nterm)
 
-        sparql = SPARQLWrapper("http://dbpedia.org/sparql")
+        sparql = SPARQLWrapper(self.sparql_endpoint)
         sparql.setQuery(nquery)
         rterms = []
         sparql.setReturnFormat(JSON)

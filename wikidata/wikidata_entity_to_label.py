@@ -1,13 +1,19 @@
 import requests
 import time
-from caches.base import CacheBase
+from wikidata.base import WikidataBase
 
 
-class WikidataEntityToLabel(CacheBase):
+class WikidataEntityToLabel(WikidataBase):
     """WikidataEntityToLabel - class for request label of any wikidata entities with cahce"""
 
-    def __init__(self, cache_dir_path: str = "./cache_store") -> None:
-        super().__init__(cache_dir_path, "wikidata_entity_to_label.pkl")
+    def __init__(
+        self,
+        cache_dir_path: str = "./cache_store",
+        sparql_endpoint: str = None,
+    ) -> None:
+        super().__init__(
+            cache_dir_path, "wikidata_entity_to_label.pkl", sparql_endpoint
+        )
         self.cache = {}
         self.load_from_cache()
 
@@ -20,7 +26,6 @@ class WikidataEntityToLabel(CacheBase):
         return self.cache.get(entity_idx)
 
     def _request_wikidata(self, entity_idx):
-        url = "https://query.wikidata.org/sparql"
         query = """
         PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#> 
         PREFIX wd: <http://www.wikidata.org/entity/> 
@@ -35,8 +40,16 @@ class WikidataEntityToLabel(CacheBase):
 
         def _try_request(query, url):
             try:
-                request = requests.get(url, params={"format": "json", "query": query})
+                request = requests.get(
+                    url,
+                    params={"format": "json", "query": query},
+                    headers={"Accept": "application/json"},
+                )
                 data = request.json()
+
+                if len(data["results"]["bindings"]) == 0:
+                    return None
+
                 return data["results"]["bindings"][0]["label"]["value"]
 
             except ValueError:
@@ -44,10 +57,10 @@ class WikidataEntityToLabel(CacheBase):
                 time.sleep(60)
                 return _try_request(query, url)
 
-            except Exception:
-                print(f"ERROR with request query:    {query}")
+            except Exception as exception:
+                print(f"ERROR with request query:    {query}\n{str(exception)}")
                 print("sleep 60...")
                 time.sleep(60)
                 return _try_request(query, url)
 
-        return _try_request(query, url)
+        return _try_request(query, self.sparql_endpoint)
