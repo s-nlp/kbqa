@@ -28,7 +28,7 @@ def get_csv(num_ans: int):
     """
     return the pd df with num_ans answers to our question
     """
-    df = pd.read_csv("./results.csv")
+    df = pd.read_csv("/workspace/kbqa/subgraphs_dataset/results.csv")
     df = df.iloc[:, : num_ans + 3]  # only selecting 50 bad answers
     return df.head(1)
 
