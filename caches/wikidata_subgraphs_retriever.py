@@ -72,16 +72,16 @@ class SubgraphsRetriever(CacheBase):
         for e2c, c2e in zip(entities2candidate, candidate2entities):
             # if we get both NULL results, there is no shortest paths
             if not e2c and not c2e:
-                raise Exception("NO SHORTEST PATH FOUND")
-
-            # e2c and c2e both returns non NULL results
-            if e2c and c2e:
-                # see which path is shorter
-                shorter_path = e2c if len(e2c) < len(c2e) else c2e
+                res.append(None)
             else:
-                # shorter path is the non empty list
-                shorter_path = e2c if not c2e else c2e
-            res.append(shorter_path)
+                # e2c and c2e both returns non NULL results
+                if e2c and c2e:
+                    # see which path is shorter
+                    shorter_path = e2c if len(e2c) < len(c2e) else c2e
+                else:
+                    # shorter path is the non empty list
+                    shorter_path = e2c if not c2e else c2e
+                res.append(shorter_path)
         return res
 
     def get_subgraph(self, entities, candidate):
@@ -99,6 +99,10 @@ class SubgraphsRetriever(CacheBase):
         # given the shortest paths from both direction, find the shorter path
         paths = self.get_undirected_shortest_path(entity2candidate, candidate2entity)
 
+        # check if all path are none -> empty subgraph
+        if all(v is None for v in path):
+            return nx.DiGraph()
+
         if self.edge_between_path is True:
             res = self.subgraph_with_connection(paths)
         else:
@@ -113,8 +117,9 @@ class SubgraphsRetriever(CacheBase):
         # distinct set of our entities in the paths
         h_vertices = set()
         for path in paths:
-            for entity in path:
-                h_vertices.add(entity)
+            if path is not None:
+                for entity in path:
+                    h_vertices.add(entity)
 
         res = self.fill_edges_in_subgraph(h_vertices)
 
