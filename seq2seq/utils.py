@@ -86,14 +86,12 @@ def convert_to_features(example_batch: Dict, tokenizer: PreTrainedTokenizer) -> 
     """
     input_encodings = tokenizer.batch_encode_plus(
         example_batch["question"],
-        pad_to_max_length=True,
-        max_length=1024,
+        padding="max_length",
         truncation=True,
     )
     target_encodings = tokenizer.batch_encode_plus(
         example_batch["object"],
-        pad_to_max_length=True,
-        max_length=1024,
+        padding="max_length",
         truncation=True,
     )
 
