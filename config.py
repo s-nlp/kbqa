@@ -5,3 +5,6 @@ SEQ2SEQ_AVAILABLE_HF_PRETRAINED_MODEL_NAMES = [
     "t5-base",
     "t5-large",
 ]
+
+SPARQL_ENDPOINT = "https://query.wikidata.org/sparql"
+SPARQL_ENGINE = "blazegraph"

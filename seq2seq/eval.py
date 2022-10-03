@@ -7,7 +7,7 @@ import datasets
 import torch
 import pandas as pd
 from torch.utils.data import DataLoader
-from caches.wikidata_redirects import WikidataRedirectsCache
+from wikidata.wikidata_redirects import WikidataRedirectsCache
 import evaluate
 
 
