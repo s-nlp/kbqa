@@ -1,9 +1,13 @@
-class QuestionEntitiesCandidates:
-    """
-    class that holds the questions, entities and candidates
-    """
+"""
+Module to help organize the question, entities, candidates and scores.
+Essentially is an object that hold our wanted info
+"""
 
-    def __init__(self, question: str):
+
+class QuestionEntitiesCandidates:
+    """class that holds the questions, entities and candidates"""
+
+    def __init__(self, question: str) -> None:
         self.question = question
         self.entity_texts = []
         self.entity_ids = []
@@ -39,8 +43,7 @@ class QuestionEntitiesCandidates:
             if entity_text_en is not None:
                 self.entity_texts.append(entity_text_en)
             else:
-                self.entity_texts.append('NO ENGLISH ENTITY TEXT')
-
+                self.entity_texts.append("NO ENGLISH ENTITY TEXT")
 
             self.entity_scores.append(entity_score)
             self.entity_ids.append(entity_id)
@@ -58,6 +61,9 @@ class QuestionEntitiesCandidates:
             self.candidate_ids.append(curr_id)
 
     def display(self):
+        """
+        print out our current question, entity id, score, and candidate
+        """
         print()
         print("question:", self.question)
         print("entities:", self.entity_ids)

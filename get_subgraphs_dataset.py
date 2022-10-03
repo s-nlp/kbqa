@@ -2,15 +2,15 @@ import pandas as pd
 import pickle
 import torch
 import argparse
+import pathlib
 from genre.fairseq_model import mGENRE  # pylint: disable=import-error,import-error
-from caches.wikidata_entity_to_label import WikidataEntityToLabel
+from wikidata.wikidata_entity_to_label import WikidataEntityToLabel
 from caches.genre import GENREWikidataEntityesCache
 from subgraphs_dataset.question_entities_candidate import QuestionEntitiesCandidates
-from caches.wikidata_subgraphs_retriever import SubgraphsRetriever
-from caches.wikidata_shortest_path import WikidataShortestPathCache
-from caches.wikidata_label_to_entity import (
-    WikidataLableToEntity,
-)  # pylint: disable=import-error,import-error
+from wikidata.wikidata_subgraphs_retriever import SubgraphsRetriever
+from wikidata.wikidata_shortest_path import WikidataShortestPathCache
+from wikidata.wikidata_label_to_entity import WikidataLabelToEntity
+
 from genre.trie import Trie, MarisaTrie  # pylint: disable=unused-import,import-error
 import warnings
 
@@ -28,7 +28,8 @@ def get_csv(num_ans: int):
     """
     return the pd df with num_ans answers to our question
     """
-    df = pd.read_csv("/workspace/kbqa/subgraphs_dataset/results.csv")
+    curr_dir = pathlib.Path().resolve()
+    df = pd.read_csv(str(curr_dir) + "/subgraphs_dataset/results.csv")
     df = df.iloc[:, : num_ans + 3]  # only selecting 50 bad answers
     return df.head(1)
 
@@ -45,13 +46,14 @@ def load_pkl():
     """
     load the needed pkl files
     """
+    curr_dir = pathlib.Path().resolve()
     with open(
-        "/workspace/kbqa/lang_title2wikidataID-normalized_with_redirect.pkl", "rb"
+        str(curr_dir) + "/lang_title2wikidataID-normalized_with_redirect.pkl", "rb"
     ) as f:
         lang_title_wikidata_id = pickle.load(f)
 
     with open(
-        "/workspace/kbqa/titles_lang_all105_marisa_trie_with_redirect.pkl", "rb"
+        str(curr_dir) + "/titles_lang_all105_marisa_trie_with_redirect.pkl", "rb"
     ) as f:
         trie = pickle.load(f)
 
@@ -63,9 +65,10 @@ def load_model():
     """
     load our mGENRE
     """
+    curr_dir = pathlib.Path().resolve()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = mGENRE.from_pretrained(
-        "/workspace/kbqa/fairseq_multilingual_entity_disambiguation"
+        str(curr_dir) + "/fairseq_multilingual_entity_disambiguation"
     ).eval()
     model.to(device)
     print("mGENRE loaded")
@@ -166,7 +169,7 @@ if __name__ == "__main__":
         df, questions_entities_candidates, model, trie, lang_title_wikidata_id
     )
 
-    label2entity = WikidataLableToEntity()
+    label2entity = WikidataLabelToEntity()
     questions_entities_candidates = get_question_candidate(
         df, questions_entities_candidates, label2entity
     )
@@ -179,9 +182,10 @@ if __name__ == "__main__":
         entity2label, shortest_path, edge_between_path=True
     )
     edge_between_path_true = get_subgraphs(questions_entities_candidates, subgraph_obj)
+    curr_dir = pathlib.Path().resolve()
     subgraphs_to_pkl(
         edge_between_path_true,
-        "/workspace/kbqa/subgraphs_dataset/subgraphs_edges_between.pkl",
+        str(curr_dir) + "/subgraphs_dataset/subgraphs_edges_between.pkl",
     )
 
     subgraph_obj = SubgraphsRetriever(
@@ -190,5 +194,5 @@ if __name__ == "__main__":
     edge_between_path_false = get_subgraphs(questions_entities_candidates, subgraph_obj)
     subgraphs_to_pkl(
         edge_between_path_false,
-        "/workspace/kbqa/subgraphs_dataset/subgraphs_no_edges_between.pkl",
+        str(curr_dir) + "/subgraphs_dataset/subgraphs_no_edges_between.pkl",
     )

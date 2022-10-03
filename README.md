@@ -4,7 +4,7 @@
 
 ### Build and run docker
 ```bash
-docker build -f ./Dockerfile-t kbqa_dev ./
+docker build -f ./Dockerfile -t kbqa_dev ./
 docker run -v $PWD:/workspace/kbqa/ --network host -ti kbqa_dev
 ```
 
