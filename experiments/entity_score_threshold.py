@@ -1,22 +1,23 @@
+"""
+code to set up the entity score threshold experiment
+"""
+import warnings
+
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+
 # setting the path to be at root for import
 import sys
 import pandas as pd
 
-sys.path[0] = "/workspace/kbqa/"
-
+sys.path[0] = "/workspace/new_kbqa/"
+# pylint: disable=wrong-import-position
 from tabulate import tabulate
-from caches.wikidata_entity_to_label import WikidataEntityToLabel
-from caches.genre import GENREWikidataEntityesCache
+from wikidata.wikidata_entity_to_label import WikidataEntityToLabel
 from subgraphs_dataset.question_entities_candidate import QuestionEntitiesCandidates
-from caches.wikidata_subgraphs_retriever import SubgraphsRetriever
-from caches.wikidata_shortest_path import WikidataShortestPathCache
-from caches.wikidata_entity_to_label import WikidataEntityToLabel
-from caches.wikidata_shortest_path import WikidataShortestPathCache
-from caches.wikidata_label_to_entity import (
-    WikidataLableToEntity,
-)  # pylint: disable=import-error,import-error
+from wikidata.wikidata_subgraphs_retriever import SubgraphsRetriever
+from wikidata.wikidata_shortest_path import WikidataShortestPathCache
+from wikidata.wikidata_label_to_entity import WikidataLabelToEntity
 
-# pylint: disable=import-error,import-error
 from get_subgraphs_dataset import (
     get_csv,
     load_model,
@@ -25,27 +26,23 @@ from get_subgraphs_dataset import (
     get_question_entities,
     preprocess_question,
 )
+import pathlib
 from genre.trie import Trie, MarisaTrie  # pylint: disable=unused-import,import-error
-import warnings
-
-warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 
 def get_index_none(array):
     """
     return all indicies of none elements in array
     """
-    none_indices = [i for i, v in enumerate(array) if v is None]
-    return none_indices
+    res = [i for i, v in enumerate(array) if v is None]
+    return res
 
 
 def create_subgraph_retriever():
     entity2label = WikidataEntityToLabel()
     shortest_path = WikidataShortestPathCache()
-    subgraph_obj = SubgraphsRetriever(
-        entity2label, shortest_path, edge_between_path=True
-    )
-    return subgraph_obj
+    obj = SubgraphsRetriever(entity2label, shortest_path, edge_between_path=True)
+    return obj
 
 
 def populate_dict(entity_text, entity_id, entity_score, candidate, shortest_path):
@@ -96,6 +93,7 @@ def classify_shortest_path(ques_en_can, candidate, none_indices):
 
 
 if __name__ == "__main__":
+    curr_dir = pathlib.Path(__file__).parent.resolve()
     # get our csv and preprocess the question
     df = get_csv(5)
     df["question"] = df["question"].apply(preprocess_question)
@@ -112,7 +110,7 @@ if __name__ == "__main__":
     )
 
     # get candidate
-    label2entity = WikidataLableToEntity()
+    label2entity = WikidataLabelToEntity()
     questions_entities_candidates = get_question_candidate(
         df, questions_entities_candidates, label2entity
     )
@@ -127,6 +125,7 @@ if __name__ == "__main__":
 
         for candidate in candidates:
             # getting our shortest path from both side
+            print(entities, candidate)
             entity2candidate = subgraph_obj.get_paths(
                 entities, candidate, is_entities2candidate=True
             )
@@ -149,4 +148,4 @@ if __name__ == "__main__":
     # create our dataframe
     df = pd.DataFrame(rows_list)
     print(tabulate(df, headers="keys", tablefmt="psql"))
-    df.to_csv("/workspace/kbqa/experiments/result.csv", sep="\t")
+    df.to_csv(str(curr_dir) + "/result.csv", sep="\t")

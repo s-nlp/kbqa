@@ -37,7 +37,8 @@ class SubgraphsRetriever(WikidataBase):
         """
         path = self.shortest_path.get_shortest_path(entity, candidate)
         path_clean = []
-
+        if path is None:
+            return None
         # extracting the entity ID only
         for node in path:
             entity_id = node.split("/")[-1]
