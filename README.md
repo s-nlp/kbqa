@@ -4,8 +4,8 @@
 
 ### Build and run docker
 ```bash
-docker build -f ./Dockerfile -t kbqa_dev ./
-docker run -v $PWD:/workspace/kbqa/ -ti kbqa_dev
+docker build -f ./Dockerfile-t kbqa_dev ./
+docker run -v $PWD:/workspace/kbqa/ --network host -ti kbqa_dev
 ```
 
 ### Prepare mGENRE
@@ -30,3 +30,11 @@ python3 get_subgraphs_dataset.py
 ```
 
 After running the above commands, the data will be in `/workspace/kbqa/subgraphs_dataset`. There will be 2 `.pkl` files. One will be with `subgraphs_edges_between.pkl`. There will be immediate edges between each shortest paths. On the other hand, the other will be `subgraphs_no_edges_between.pkl` with no immediate edges between the paths. 
+### Wikidata utils
+Wikidata SPARQL endpoint and Engine can be configured in `config.py`
+By default, used query.wikidata.org
+
+```python
+SPARQL_ENDPOINT = "https://query.wikidata.org/sparql"
+SPARQL_ENGINE = "blazegraph"
+```
