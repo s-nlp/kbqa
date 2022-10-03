@@ -1,12 +1,17 @@
-class QuestionEntitiesCandidates:
-    """
-    class that holds the questions, entities and candidates
-    """
+"""
+Module to help organize the question, entities, candidates and scores.
+Essentially is an object that hold our wanted info
+"""
 
-    def __init__(self, question: str):
+
+class QuestionEntitiesCandidates:
+    """class that holds the questions, entities and candidates"""
+
+    def __init__(self, question: str) -> None:
         self.question = question
         self.entity_texts = []
         self.entity_ids = []
+        self.entity_scores = []
         self.candidate_texts = []
         self.candidate_ids = []
         self.original_entities = None
@@ -22,6 +27,7 @@ class QuestionEntitiesCandidates:
         for entity in dirty_entities:
             entity_id = entity["id"]
             entity_text = entity["texts"]
+            entity_score = entity["score"].detach().numpy()
             entity_text_en = None
 
             # getting our entity in the wanted language
@@ -36,7 +42,10 @@ class QuestionEntitiesCandidates:
                     entity_text_en = text[0].strip()
             if entity_text_en is not None:
                 self.entity_texts.append(entity_text_en)
+            else:
+                self.entity_texts.append("NO ENGLISH ENTITY TEXT")
 
+            self.entity_scores.append(entity_score)
             self.entity_ids.append(entity_id)
 
     def populate_candidates(self, candidate_texts, label2entity):
@@ -52,8 +61,12 @@ class QuestionEntitiesCandidates:
             self.candidate_ids.append(curr_id)
 
     def display(self):
+        """
+        print out our current question, entity id, score, and candidate
+        """
         print()
         print("question:", self.question)
         print("entities:", self.entity_ids)
+        print("entities' score:", self.entity_scores)
         print("candidates:", self.candidate_ids)
         print()
