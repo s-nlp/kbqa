@@ -3,7 +3,6 @@
 # pylint: disable=missing-function-docstring
 
 import time
-import logging
 import requests
 from wikidata.base import WikidataBase
 from wikidata.wikidata_redirects import WikidataRedirectsCache
@@ -68,7 +67,6 @@ class WikidataLabelToEntity(WikidataBase):
                 return _try_request(query, url)
 
             except Exception as general_exception:
-                logging.exception(general_exception)
                 print(
                     'ERROR with entity "{}", fetching for redirects'.format(entity_name)
                 )
