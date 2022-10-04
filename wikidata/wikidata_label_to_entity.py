@@ -30,7 +30,7 @@ class WikidataLabelToEntity(WikidataBase):
 
         return self.cache.get(entity_name)
 
-    def create_query(self, entity_name):
+    def _create_query(self, entity_name):
         query = """
         PREFIX schema: <http://schema.org/>
         PREFIX wikibase: <http://wikiba.se/ontology#>
@@ -47,7 +47,7 @@ class WikidataLabelToEntity(WikidataBase):
         return query
 
     def _request_wikidata(self, entity_name):
-        query = self.create_query(entity_name)
+        query = self._create_query(entity_name)
 
         def _try_request(query, url):
             try:
@@ -70,8 +70,6 @@ class WikidataLabelToEntity(WikidataBase):
                 print(
                     'ERROR with entity "{}", fetching for redirects'.format(entity_name)
                 )
-                print("sleep 60...")
-                time.sleep(60)
                 redirects = self.redirect_cache.get_redirects(entity_name)
 
                 if redirects == "No results found":
@@ -79,8 +77,7 @@ class WikidataLabelToEntity(WikidataBase):
                         "NO ENTITY FOUND FOR THE CURRENT LABEL"
                     ) from general_exception
                 for redirect in redirects:
-                    print(redirect)
-                    new_query = self.create_query(redirect)
+                    new_query = self._create_query(redirect)
                     return _try_request(new_query, url)
 
         return _try_request(query, self.sparql_endpoint)
