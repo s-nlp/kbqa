@@ -17,3 +17,4 @@ requests
 bs4
 marisa_trie
 jupyterlab
+spacy
