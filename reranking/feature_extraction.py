@@ -1,3 +1,6 @@
+# pylint: disable=consider-using-dict-items
+# pylint: disable=too-many-branches
+
 import networkx as nx
 from math import sqrt
 
@@ -26,14 +29,7 @@ def number_of_triangles(subgraph_obj, is_directed):
 
                 # check the triplet
                 # if it satisfies the condition
-                if (
-                    i != j
-                    and i != k
-                    and j != k
-                    and adj_array[i][j]
-                    and adj_array[j][k]
-                    and adj_array[k][i]
-                ):
+                if i != j and i != k and j != k:
                     count_triangle += 1
 
     # If graph is directed , division is done by 3
@@ -93,19 +89,21 @@ def katz_centrality(
 
     if nstart is None:
 
-        x_nodes = dict([(n, 0) for n in graph])
+        x_nodes = {n: 0 for n in graph}
 
     else:  # if nstart is not None
         x_nodes = nstart
 
     try:
         b_beta = dict.fromkeys(graph, float(beta))
-    except (TypeError, ValueError, AttributeError):
+    except (TypeError, ValueError, AttributeError) as exc:
         b_beta = beta
         if set(beta) != set(graph):  # raise size mismatch error
-            raise nx.NetworkXError("beta dictionary must have a value for every node")
-
-    for i in range(max_iter):
+            raise nx.NetworkXError(
+                "beta dictionary must have a value for every node"
+            ) from exc
+    i = 0
+    while i < max_iter:
         xlast = x_nodes
         x_nodes = dict.fromkeys(xlast, 0)
 
@@ -114,8 +112,7 @@ def katz_centrality(
                 x_nodes[nbr] += xlast[j] * graph[j][nbr].get(weight, 1)
         for j in x_nodes:
             x_nodes[j] = alpha * x_nodes[j] + b_beta[j]
-
-        err = sum([abs(x_nodes[j] - xlast[j]) for j in x_nodes])
+        err = sum(abs(x_nodes[j] - xlast[j]) for j in x_nodes)
         if err < nnodes * tol:
             if normalized:
 
@@ -173,7 +170,10 @@ def eigenvector_centrality(
     @rtype:   dict
     """
 
-    if type(graph) == nx.MultiGraph or type(graph) == nx.MultiDiGraph:
+    if (
+        isinstance(graph, nx.MultiGraph) is True
+        or isinstance(graph, nx.MultiDiGraph) is True
+    ):
         raise nx.NetworkXException("Not defined for multigraphs.")
 
     if len(graph) == 0:
@@ -181,7 +181,7 @@ def eigenvector_centrality(
 
     if nstart is None:
 
-        x_nodes = dict([(n, 1.0 / len(graph)) for n in graph])
+        x_nodes = dict(((n, 1.0 / len(graph)) for n in graph))
     else:
         x_nodes = nstart
 
@@ -206,7 +206,7 @@ def eigenvector_centrality(
         for i in x_nodes:
             x_nodes[i] *= s_rec
 
-        err = sum([abs(x_nodes[n] - xlast[n]) for n in x_nodes])
+        err = sum(abs(x_nodes[n] - xlast[n]) for n in x_nodes)
         if err < nnodes * tol:
             return x_nodes
 

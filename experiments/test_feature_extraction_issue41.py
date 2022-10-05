@@ -1,6 +1,8 @@
-from caches.wikidata_subgraphs_retriever import SubgraphsRetriever
-from caches.wikidata_entity_to_label import WikidataEntityToLabel
-from caches.wikidata_shortest_path import WikidataShortestPathCache
+# pylint: disable=import-error
+
+from wikidata.wikidata_subgraphs_retriever import SubgraphsRetriever
+from wikidata.wikidata_entity_to_label import WikidataEntityToLabel
+from wikidata.wikidata_shortest_path import WikidataShortestPathCache
 import feature_extraction
 import networkx as nx
 
