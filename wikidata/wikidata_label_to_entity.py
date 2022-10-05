@@ -3,9 +3,9 @@
 # pylint: disable=missing-function-docstring
 
 import time
-import logging
 import requests
 from wikidata.base import WikidataBase
+from wikidata.wikidata_redirects import WikidataRedirectsCache
 
 
 class WikidataLabelToEntity(WikidataBase):
@@ -13,12 +13,14 @@ class WikidataLabelToEntity(WikidataBase):
 
     def __init__(
         self,
+        redirect_cache: WikidataRedirectsCache,
         cache_dir_path: str = "./cache_store_entity_id",
         sparql_endpoint: str = None,
     ) -> None:
         super().__init__(cache_dir_path, "wikidata_entity_to_id.pkl", sparql_endpoint)
         self.cache = {}
         self.load_from_cache()
+        self.redirect_cache = redirect_cache
 
     def get_id(self, entity_name):
         if entity_name not in self.cache:
@@ -28,7 +30,7 @@ class WikidataLabelToEntity(WikidataBase):
 
         return self.cache.get(entity_name)
 
-    def _request_wikidata(self, entity_name):
+    def _create_query(self, entity_name):
         query = """
         PREFIX schema: <http://schema.org/>
         PREFIX wikibase: <http://wikiba.se/ontology#>
@@ -42,6 +44,10 @@ class WikidataLabelToEntity(WikidataBase):
         """.replace(
             "<ENTITY_NAME>", entity_name
         )
+        return query
+
+    def _request_wikidata(self, entity_name):
+        query = self._create_query(entity_name)
 
         def _try_request(query, url):
             try:
@@ -60,11 +66,16 @@ class WikidataLabelToEntity(WikidataBase):
                 time.sleep(60)
                 return _try_request(query, url)
 
-            except Exception as general_exception:
-                logging.exception(general_exception)
-                print(f"ERROR with request query:    {query}")
-                print("sleep 60...")
-                time.sleep(60)
-                return _try_request(query, url)
+            except Exception:
+                print(
+                    'ERROR with entity "{}", fetching for redirects'.format(entity_name)
+                )
+                redirects = self.redirect_cache.get_redirects(entity_name)
+
+                if redirects == "No results found":
+                    return ""
+                for redirect in redirects:
+                    new_query = self._create_query(redirect)
+                    return _try_request(new_query, url)
 
         return _try_request(query, self.sparql_endpoint)
