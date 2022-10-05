@@ -66,16 +66,14 @@ class WikidataLabelToEntity(WikidataBase):
                 time.sleep(60)
                 return _try_request(query, url)
 
-            except Exception as general_exception:
+            except Exception:
                 print(
                     'ERROR with entity "{}", fetching for redirects'.format(entity_name)
                 )
                 redirects = self.redirect_cache.get_redirects(entity_name)
 
                 if redirects == "No results found":
-                    raise Exception(
-                        "NO ENTITY FOUND FOR THE CURRENT LABEL"
-                    ) from general_exception
+                    return ""
                 for redirect in redirects:
                     new_query = self._create_query(redirect)
                     return _try_request(new_query, url)
