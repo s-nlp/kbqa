@@ -38,12 +38,16 @@ class SubgraphsRetriever(WikidataBase):
         path = self.shortest_path.get_shortest_path(entity, candidate)
         path_clean = []
 
-        # extracting the entity ID only
-        for node in path:
-            entity_id = node.split("/")[-1]
-            # in case we see nodes like P136-blah-blah
-            entity_id = entity_id.split("-")[0]
-            path_clean.append(entity_id)
+        # if we don't get back shortest path -> return the vertices
+        if path is None:
+            path_clean += [entity, candidate]
+        else:
+            # extracting the entity ID only
+            for node in path:
+                entity_id = node.split("/")[-1]
+                # in case we see nodes like P136-blah-blah
+                entity_id = entity_id.split("-")[0]
+                path_clean.append(entity_id)
         return path_clean
 
     def get_paths(self, entities, candidate, is_entities2candidate):
@@ -68,18 +72,14 @@ class SubgraphsRetriever(WikidataBase):
         """
         res = []
         for e2c, c2e in zip(entities2candidate, candidate2entities):
-            # if we get both NULL results, there is no shortest paths
-            if not e2c and not c2e:
-                res.append(None)
+            # e2c and c2e both returns non NULL results
+            if e2c and c2e:
+                # see which path is shorter
+                shorter_path = e2c if len(e2c) < len(c2e) else c2e
             else:
-                # e2c and c2e both returns non NULL results
-                if e2c and c2e:
-                    # see which path is shorter
-                    shorter_path = e2c if len(e2c) < len(c2e) else c2e
-                else:
-                    # shorter path is the non empty list
-                    shorter_path = e2c if not c2e else c2e
-                res.append(shorter_path)
+                # shorter path is the non empty list
+                shorter_path = e2c if not c2e else c2e
+            res.append(shorter_path)
         return res
 
     def get_subgraph(self, entities, candidate):
@@ -96,11 +96,7 @@ class SubgraphsRetriever(WikidataBase):
 
         # given the shortest paths from both direction, find the shorter path
         paths = self.get_undirected_shortest_path(entity2candidate, candidate2entity)
-
-        # check if all path are none -> empty subgraph
-        if all(v is None for v in path):
-            return nx.DiGraph()
-
+        print(paths)
         if self.edge_between_path is True:
             res = self.subgraph_with_connection(paths)
         else:
@@ -115,9 +111,8 @@ class SubgraphsRetriever(WikidataBase):
         # distinct set of our entities in the paths
         h_vertices = set()
         for path in paths:
-            if path is not None:
-                for entity in path:
-                    h_vertices.add(entity)
+            for entity in path:
+                h_vertices.add(entity)
 
         res = self.fill_edges_in_subgraph(h_vertices)
 
