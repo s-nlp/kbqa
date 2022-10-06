@@ -14,7 +14,7 @@ class WikidataLabelToEntity(WikidataBase):
     def __init__(
         self,
         redirect_cache: WikidataRedirectsCache,
-        cache_dir_path: str = "./cache_store_entity_id",
+        cache_dir_path: str = "./cache_store",
         sparql_endpoint: str = None,
     ) -> None:
         super().__init__(cache_dir_path, "wikidata_entity_to_id.pkl", sparql_endpoint)
