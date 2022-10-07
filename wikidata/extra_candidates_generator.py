@@ -4,9 +4,12 @@
 # pylint: disable=too-many-arguments
 
 import numpy as np
+from typing import Optional
 from caches.base import CacheBase
 from wikidata.wikidata_subgraphs_retriever import SubgraphsRetriever
 from wikidata.wikidata_label_to_entity import WikidataLabelToEntity
+from wikidata.wikidata_redirects import WikidataRedirectsCache
+from metrics import recall
 
 
 class ExtraCandidateGenerator(CacheBase):
@@ -31,22 +34,20 @@ class ExtraCandidateGenerator(CacheBase):
         self.label2entity = label2entity
         self.subgraph_retriever = subgraph_retriever
 
-    def seq2seq_recall(self):
+    def seq2seq_recall(
+        self, wikidata_redirects_cache: Optional[WikidataRedirectsCache] = None
+    ):
         """Function for calculating the recall"""
-        result = [
-            int(self.target_list[i] in self.candidates_list[i])
-            for i in range(len(self.target_list))
-        ]
-        return sum(result) / len(self.target_list)
+        return recall(self.target_list, self.candidates_list, wikidata_redirects_cache)
 
-    def seq2seq_recall_with_1hope(self):
+    def seq2seq_recall_with_1hope(
+        self, wikidata_redirects_cache: Optional[WikidataRedirectsCache] = None
+    ):
         """Function for calculating the recall with 1-hope neighbours"""
         candidates_with_neighbours = self.get_all_1hope_neighbours()
-        result = [
-            int(self.target_list[i] in candidates_with_neighbours[i])
-            for i in range(len(self.target_list))
-        ]
-        return sum(result) / len(self.target_list)
+        return recall(
+            self.target_list, candidates_with_neighbours, wikidata_redirects_cache
+        )
 
     def get_neighbours_of_candidate(self, candidate_name):
         """Function for retrieving the closest neighbours of entity (1-hope)"""
@@ -64,7 +65,7 @@ class ExtraCandidateGenerator(CacheBase):
                 self.cache[candidate_name] = neighbours_values
                 self.save_cache()
             else:
-                print("Empty list of 1-hope neighbours")
+                print(f"Empty list of 1-hope neighbours for {candidate}")
                 return neighbours_values
 
         return self.cache[candidate_name]
