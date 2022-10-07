@@ -167,6 +167,8 @@ class SubgraphsRetriever(WikidataBase):
             )
             # query to get properties of the current entity
             query = """
+            PREFIX wd: <http://www.wikidata.org/entity/>
+            PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
             SELECT ?p ?o ?label WHERE 
             {
                 BIND(wd:VALUE AS ?q)
