@@ -1,6 +1,4 @@
-# pylint: disable=missing-module-docstring
-# pylint: disable=missing-class-docstring
-# pylint: disable=missing-function-docstring
+# pylint: disable=logging-format-interpolation
 
 import time
 import requests
@@ -57,7 +55,7 @@ class WikidataLabelToEntity(WikidataBase):
             data = request.json()
 
             return data["results"]["bindings"][0]["item"]["value"].split("/")[-1]
-        
+
         except requests.exceptions.ConnectionError as connection_exception:
             logging.error(str(connection_exception))
             raise connection_exception
@@ -78,7 +76,9 @@ class WikidataLabelToEntity(WikidataBase):
         if res is not None:
             return res
 
-        logging.warning('ERROR with entity "{}", fetching for redirects'.format(entity_name))
+        logging.warning(
+            'ERROR with entity "{}", fetching for redirects'.format(entity_name)
+        )
         redirects = self.redirect_cache.get_redirects(entity_name)
         if redirects == "No results found":
             return ""
