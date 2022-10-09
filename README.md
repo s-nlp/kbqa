@@ -20,3 +20,9 @@ tar -xvf fairseq_multilingual_entity_disambiguation.tar.gz
 wget https://dl.fbaipublicfiles.com/GENRE/lang_title2wikidataID-normalized_with_redirect.pkl
 wget http://dl.fbaipublicfiles.com/GENRE/titles_lang_all105_marisa_trie_with_redirect.pkl
 ```
+### plots
+use plot_subgraph_dataset in experiments to get the plots (needs improvement to include the proper graphs with entities, candidates and node/edge names)
+place the plots in subgraph_plots/training and subgraph_plots/validation respectively inside correct and wrong directories to create dataset
+
+### CNN 
+run cnn_classifier in reranking to get the confusion matrix and accuracy results with plots for lr, loss and accuracy
