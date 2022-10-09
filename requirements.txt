@@ -17,3 +17,5 @@ requests
 bs4
 marisa_trie
 jupyterlab
+sklearn
+tensorflow
