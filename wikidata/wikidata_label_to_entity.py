@@ -39,43 +39,52 @@ class WikidataLabelToEntity(WikidataBase):
                 ?item ?label "<ENTITY_NAME>"@en.
                 ?article schema:about ?item .
                 ?article schema:inLanguage "en" .
-                ?article schema:isPartOf <https://en.wikipedia.org/>
         }
         """.replace(
             "<ENTITY_NAME>", entity_name
         )
         return query
 
+    def _try_request(self, query, url):
+        try:
+            request = requests.get(
+                url,
+                params={"format": "json", "query": query},
+                timeout=20,
+                headers={"Accept": "application/json"},
+            )
+            data = request.json()
+
+            return data["results"]["bindings"][0]["item"]["value"].split("/")[-1]
+
+        except ValueError:
+            print("sleep 60...")
+            time.sleep(60)
+            return self._try_request(query, url)
+
+        except Exception:
+            return None
+
     def _request_wikidata(self, entity_name):
         query = self._create_query(entity_name)
+        res = self._try_request(query, self.sparql_endpoint)
 
-        def _try_request(query, url):
-            try:
-                request = requests.get(
-                    url,
-                    params={"format": "json", "query": query},
-                    timeout=20,
-                    headers={"Accept": "application/json"},
-                )
-                data = request.json()
+        # if valid answer, return res
+        if res is not None:
+            return res
 
-                return data["results"]["bindings"][0]["item"]["value"].split("/")[-1]
+        print('ERROR with entity "{}", fetching for redirects'.format(entity_name))
+        redirects = self.redirect_cache.get_redirects(entity_name)
+        if redirects == "No results found":
+            return ""
 
-            except ValueError:
-                print("sleep 60...")
-                time.sleep(60)
-                return _try_request(query, url)
+        for redirect in redirects:
+            new_query = self._create_query(redirect)
+            new_res = self._try_request(new_query, self.sparql_endpoint)
 
-            except Exception:
-                print(
-                    'ERROR with entity "{}", fetching for redirects'.format(entity_name)
-                )
-                redirects = self.redirect_cache.get_redirects(entity_name)
+            # if we get a result for redirect, end loop and return
+            if new_res is not None:
+                return new_res
 
-                if redirects == "No results found":
-                    return ""
-                for redirect in redirects:
-                    new_query = self._create_query(redirect)
-                    return _try_request(new_query, url)
-
-        return _try_request(query, self.sparql_endpoint)
+        # all redirects have been checked and no id
+        return ""
