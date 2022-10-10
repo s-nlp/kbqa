@@ -1,7 +1,7 @@
 """Module for NER insertion to sentence"""
 
 import spacy
-from kbqa.caches.base import CacheBase
+from caches.base import CacheBase
 
 
 class NerToSentenceInsertion(CacheBase):
