@@ -1,4 +1,4 @@
-"""Module for NER insertion to sentence"""
+"""Module for NER insertion to the sentence"""
 
 import spacy
 from caches.base import CacheBase
