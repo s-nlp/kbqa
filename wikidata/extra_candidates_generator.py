@@ -21,8 +21,8 @@ class ExtraCandidateGenerator(CacheBase):
         cache_dir_path: str = "./cache_store",
     ) -> None:
 
-        super().__init__(cache_dir_path, "wikidata_entity_1_hope_neighbors.pkl")
-        self.cache = {}
+        super().__init__(cache_dir_path, "wikidata_entity_k_hope_neighbors.pkl")
+        self.cache = {"1_hope": {}, "2_hope": {}}
         self.load_from_cache()
 
         self.target_list = target_list
@@ -51,7 +51,7 @@ class ExtraCandidateGenerator(CacheBase):
     def get_neighbours_of_candidate(self, candidate_name):
         """Function for retrieving the closest neighbours of entity (1-hope)"""
 
-        if candidate_name not in self.cache:
+        if candidate_name not in self.cache["1_hope"]:
             candidate = self.label2entity.get_id(candidate_name)
 
             neighbours = self.subgraph_retriever.get_edges(candidate)["results"][
@@ -61,13 +61,32 @@ class ExtraCandidateGenerator(CacheBase):
                 neighbour["label"]["value"] for neighbour in neighbours
             ]
             if neighbours_values != []:
-                self.cache[candidate_name] = neighbours_values
+                self.cache["1_hope"][candidate_name] = neighbours_values
                 self.save_cache()
             else:
                 print("Empty list of 1-hope neighbours")
                 return neighbours_values
 
-        return self.cache[candidate_name]
+        return self.cache["1_hope"][candidate_name]
+
+    def get_2_hope_neighbours(self, candidate_name):
+        """Function for retrieving the 2-hope neighbours of entity"""
+        if candidate_name not in self.cache["2_hope"]:
+            candidate = self.label2entity.get_id(candidate_name)
+            nodes_1 = self.get_neighbours_of_candidate(candidate)
+            nodes_2 = np.unique(
+                sum(
+                    [self.get_neighbours_of_candidate(node_i) for node_i in nodes_1], []
+                )
+            )
+            two_hope_neighbours = list(np.unique([*nodes_1, *nodes_2]))
+            if two_hope_neighbours:
+                self.cache["2_hope"][candidate_name] = two_hope_neighbours
+                self.save_cache()
+            else:
+                print("Empty list of 2-hope neighbours")
+                return two_hope_neighbours
+        return self.cache["2_hope"][candidate_name]
 
     def get_all_1hope_neighbours(self):
         """Function for extending the set of candidates_list via 1-hope neighbours"""
@@ -78,7 +97,7 @@ class ExtraCandidateGenerator(CacheBase):
 
             new_candidates = [
                 self.get_neighbours_of_candidate(candidate)
-                for candidate in np.unique(np.array(candidates_list))
+                for candidate in np.unique(candidates_list)
             ]
             new_candidates = list(np.unique(sum(new_candidates, [])))
 
