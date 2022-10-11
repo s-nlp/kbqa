@@ -1,5 +1,13 @@
+<<<<<<< HEAD
 # pylint: disable=logging-format-interpolation
 
+=======
+# pylint: disable=missing-module-docstring
+# pylint: disable=missing-class-docstring
+# pylint: disable=missing-function-docstring
+# pylint: disable=R1710
+# pylint: disable=R0911
+>>>>>>> 782e08a (Corrected the bug with continuous redirects)
 import time
 import requests
 import logging
@@ -69,6 +77,7 @@ class WikidataLabelToEntity(WikidataBase):
             return None
 
     def _request_wikidata(self, entity_name):
+<<<<<<< HEAD
         query = self._create_query(entity_name)
         res = self._try_request(query, self.sparql_endpoint)
 
@@ -93,3 +102,71 @@ class WikidataLabelToEntity(WikidataBase):
 
         # all redirects have been checked and no id
         return ""
+=======
+        def _try_request(entity_name, url, continue_redirecting=True):
+            query = self._create_query(entity_name)
+            if continue_redirecting is True:
+                try:
+                    request = requests.get(
+                        url,
+                        params={"format": "json", "query": query},
+                        timeout=20,
+                        headers={"Accept": "application/json"},
+                    )
+                    data = request.json()
+
+                    return data["results"]["bindings"][0]["item"]["value"].split("/")[
+                        -1
+                    ]
+
+                except ValueError:
+                    print("sleep 60...")
+                    time.sleep(60)
+                    return _try_request(entity_name, url)
+
+                except Exception:
+                    print(
+                        'ERROR with entity "{}", fetching for redirects'.format(
+                            entity_name
+                        )
+                    )
+                    redirects = self.redirect_cache.get_redirects(entity_name)
+                    if redirects == "No results found":
+                        return ""
+                    for redirect in redirects:
+                        new_redirect = _try_request(
+                            redirect, url, continue_redirecting=False
+                        )
+                        if new_redirect != "":
+                            return new_redirect
+            else:
+                try:
+                    request = requests.get(
+                        url,
+                        params={"format": "json", "query": query},
+                        timeout=20,
+                        headers={"Accept": "application/json"},
+                    )
+                    data = request.json()
+
+                    return data["results"]["bindings"][0]["item"]["value"].split("/")[
+                        -1
+                    ]
+
+                except ValueError:
+                    print("sleep 60...")
+                    print("false redirects")
+                    time.sleep(2)
+                    return _try_request(entity_name, url, continue_redirecting=False)
+
+                except Exception:
+                    print(
+                        'ERROR with entity "{}", fetching for redirects, no redirects found (BREAK) '.format(
+                            entity_name
+                        )
+                    )
+
+                    return ""
+
+        return _try_request(entity_name, self.sparql_endpoint)
+>>>>>>> 782e08a (Corrected the bug with continuous redirects)
