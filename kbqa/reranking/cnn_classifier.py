@@ -1,5 +1,3 @@
-# pylint: disable=import-error
-
 import numpy as np
 from matplotlib import pyplot as plt
 import tensorflow as tf
@@ -21,7 +19,7 @@ parser.add_argument(
 
 parser.add_argument(
     "--train_epochs",
-    default=15,
+    default=25,
     type=int,
 )
 
