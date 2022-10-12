@@ -1,91 +1,124 @@
-# pylint: disable=import-error
-
 import numpy as np
 from matplotlib import pyplot as plt
 import tensorflow as tf
+import argparse
 from sklearn.metrics import accuracy_score
 from sklearn.metrics import precision_score, recall_score
 from sklearn.metrics import confusion_matrix
-
-# print("Tensorflow version " + tf.__version__)
-# print("Num GPUs Available: ", len(tf.config.experimental.list_physical_devices('GPU')))
-
-# creating 'data flow' for training data from data directory using ImageDataGenerator class
 from keras.preprocessing.image import ImageDataGenerator
+import warnings
 
-BATCH_SIZE = 2
-IMAGE_SIZE = [256, 256]
+warnings.filterwarnings("ignore", category=DeprecationWarning)
 
-# data augmentation for train dataset
-train_data_generator = ImageDataGenerator(
-    rescale=1.0 / 255,
-    rotation_range=15,
-    width_shift_range=0.15,
-    height_shift_range=0.15,
-    zoom_range=0.15,
-    horizontal_flip=True,
-)
-train_data_flow = train_data_generator.flow_from_directory(
-    directory="/workspace/kbqa/subgraph_plots/training",
-    classes=["correct", "wrong"],
-    target_size=IMAGE_SIZE,
-    color_mode="rgb",
-    batch_size=BATCH_SIZE,
-    class_mode="binary",
-    shuffle=True,
-    seed=42,
+parser = argparse.ArgumentParser()
+parser.add_argument(
+    "--batch_size",
+    default=2,
+    type=int,
 )
 
+parser.add_argument(
+    "--train_epochs",
+    default=25,
+    type=int,
+)
 
-# creating 'data flow' for validation data from data directory using ImageDataGenerator class
-
-valid_data_generator = ImageDataGenerator(rescale=1.0 / 255)
-
-valid_data_flow = valid_data_generator.flow_from_directory(
-    directory="/workspace/kbqa/subgraph_plots/validation",
-    classes=["correct", "wrong"],
-    target_size=IMAGE_SIZE,
-    color_mode="rgb",
-    batch_size=BATCH_SIZE,
-    class_mode="binary",
-    shuffle=True,
-    seed=42,
+parser.add_argument(
+    "--directory",
+    default="/workspace/kbqa/subgraph_plots/",
+    type=str,
 )
 
 
-EPOCHS = 25
+def data_generator(directory, batch_size):
 
-LR_START = 0.00001
-LR_MAX = 0.00005
-LR_MIN = 0.00001
-LR_RAMPUP_EPOCHS = 8
-LR_SUSTAIN_EPOCHS = 0
-LR_EXP_DECAY = 0.8
+    """
+    function to load data
+    """
+    data_flow = train_data_generator.flow_from_directory(
+        directory=directory,
+        classes=["correct", "wrong"],
+        target_size=[256, 256],
+        color_mode="rgb",
+        batch_size=batch_size,
+        class_mode="binary",
+        shuffle=True,
+        seed=42,
+    )
 
-
-@tf.function
-def lrfn(epoch):
-    if epoch < LR_RAMPUP_EPOCHS:
-        learning_rate = (LR_MAX - LR_START) / LR_RAMPUP_EPOCHS * epoch + LR_START
-    elif epoch < LR_RAMPUP_EPOCHS + LR_SUSTAIN_EPOCHS:
-        learning_rate = LR_MAX
-    else:
-        learning_rate = (LR_MAX - LR_MIN) * LR_EXP_DECAY ** (
-            epoch - LR_RAMPUP_EPOCHS - LR_SUSTAIN_EPOCHS
-        ) + LR_MIN
-    return learning_rate
+    return data_flow
 
 
-rng = list(range(EPOCHS))
-y = [lrfn(x) for x in rng]
+class LearningRate:
 
-plt.plot(rng, y)
-plt.savefig("lr_schedule.png", format="PNG")
+    """
+    Class to initialize and define learning rate
+    """
 
-print("Learning rate schedule: {:.3g} to {:.3g} to {:.3g}".format(y[0], max(y), y[-1]))
+    def __init__(self):
+        self.lr_start = 0.00001
+        self.lr_max = 0.00005
+        self.lr_min = 0.00001
+        self.lr_rampup_epochs = 8
+        self.lr_sustain_epochs = 0
+        self.lr_exp_decay = 0.8
+
+    @tf.function
+    def lrfn(self, epoch):
+        """
+        function to define our variable learning rate
+        """
+
+        if epoch < self.lr_rampup_epochs:
+            learning_rate = (
+                self.lr_max - self.lr_start
+            ) / self.lr_rampup_epochs * epoch + self.lr_start
+        elif epoch < self.lr_rampup_epochs + self.lr_sustain_epochs:
+            learning_rate = self.lr_max
+        else:
+            learning_rate = (self.lr_max - self.lr_min) * self.lr_exp_decay ** (
+                epoch - self.lr_rampup_epochs - self.lr_sustain_epochs
+            ) + self.lr_min
+
+        return learning_rate
+
+    def l_r(self, epochs):
+
+        """
+        function to initialize learning rate
+        """
+        rng = list(range(epochs))
+        y_axs = [self.lrfn(x) for x in rng]
+
+        return rng, y_axs
+
+
+def model(image_size):
+
+    """
+    function to build model using pre trained network with added layer for binary classification
+    """
+    # pretrained Xception network as basis for our classifier
+    pretrained_model = tf.keras.applications.Xception(
+        weights="imagenet", include_top=False, input_shape=[*image_size, 3]
+    )
+    pretrained_model.trainable = True
+
+    model = tf.keras.Sequential(
+        [
+            pretrained_model,
+            tf.keras.layers.GlobalAveragePooling2D(),
+            tf.keras.layers.Dense(1, activation="sigmoid"),
+        ]
+    )
+    return model
 
 
 def display_training_curves(training, validation, title, subplot):
+
+    """
+    function to plot training curves
+    """
     if subplot % 10 == 1:
         plt.subplots(figsize=(10, 10), facecolor="#F0F0F0")
         plt.tight_layout()
@@ -100,87 +133,110 @@ def display_training_curves(training, validation, title, subplot):
     return figure
 
 
-# pretrained Xception network as basis for our classifier
+def metrics(valid_labels, valid_predictions):
 
-pretrained_model_1 = tf.keras.applications.Xception(
-    weights="imagenet", include_top=False, input_shape=[*IMAGE_SIZE, 3]
-)
-pretrained_model_1.trainable = True
+    """
+    function to evaluate metrics on validation
+    """
+    # confusion matrix
+    conf_mat = confusion_matrix(valid_labels, valid_predictions)
 
-model_1 = tf.keras.Sequential(
-    [
-        pretrained_model_1,
-        tf.keras.layers.GlobalAveragePooling2D(),
-        tf.keras.layers.Dense(1, activation="sigmoid"),
-    ]
-)
+    # Accuracy, precision and recall scores for validation set
+    accuracy = accuracy_score(valid_labels, valid_predictions)
+    precision = precision_score(valid_labels, valid_predictions)
+    recall = recall_score(valid_labels, valid_predictions)
 
-model_1.compile(optimizer="adam", loss="binary_crossentropy", metrics=["accuracy"])
+    return conf_mat, accuracy, precision, recall
 
 
-lr_callback = tf.keras.callbacks.LearningRateScheduler(lrfn, verbose=True)
-earlystoping_callback = tf.keras.callbacks.EarlyStopping(
-    patience=5, restore_best_weights=True, monitor="val_accuracy", mode="auto"
-)
-EPOCHS = 25
-STEPS_PER_EPOCH = 30 // BATCH_SIZE
+if __name__ == "__main__":
+    args = parser.parse_args()
 
-HISTORY_1 = model_1.fit(
-    train_data_flow,
-    shuffle=True,
-    steps_per_epoch=STEPS_PER_EPOCH,
-    epochs=EPOCHS,
-    validation_data=valid_data_flow,
-    callbacks=[lr_callback, earlystoping_callback],
-)
+    BATCH_SIZE = args.batch_size
+    IMAGE_SIZE = [256, 256]
 
-# Display training curves for modified Xception model
+    # creating 'data flow' for training data from data directory using ImageDataGenerator class
+    # data augmentation for train dataset
+    train_data_generator = ImageDataGenerator(
+        rescale=1.0 / 255,
+        rotation_range=15,
+        width_shift_range=0.15,
+        height_shift_range=0.15,
+        zoom_range=0.15,
+        horizontal_flip=True,
+    )
 
-model_loss = display_training_curves(
-    HISTORY_1.history["loss"], HISTORY_1.history["val_loss"], "loss", 211
-)
-plt.savefig("model_loss.png", format="PNG")
+    train_data_flow = data_generator(args.directory + "training", BATCH_SIZE)
 
-model_accuracy = display_training_curves(
-    HISTORY_1.history["accuracy"], HISTORY_1.history["val_accuracy"], "accuracy", 212
-)
-plt.savefig("model_accuracy.png", format="PNG")
+    # creating 'data flow' for validation data from data directory using ImageDataGenerator class
+    valid_data_generator = ImageDataGenerator(rescale=1.0 / 255)
 
-# Evaluate trained classifier
+    valid_data_flow = data_generator(args.directory + "validation", BATCH_SIZE)
 
-Xception_loss, Xception_accuracy = model_1.evaluate(valid_data_flow)
+    EPOCHS = args.train_epochs
 
-print("model accuracy: " + str(Xception_accuracy))
+    learning_r = LearningRate()
 
-# make predictions
+    rng, y = learning_r.l_r(EPOCHS)
 
-valid_data_flow_2 = valid_data_generator.flow_from_directory(
-    directory="/workspace/kbqa/subgraph_plots/validation",
-    classes=["correct", "wrong"],
-    target_size=IMAGE_SIZE,
-    color_mode="rgb",
-    batch_size=1,
-    class_mode="binary",
-    shuffle=True,
-    seed=42,
-)
+    plt.plot(rng, y)
+    plt.savefig("lr_schedule.png", format="PNG")
 
+    print(
+        "Learning rate schedule: {:.3g} to {:.3g} to {:.3g}".format(y[0], max(y), y[-1])
+    )
 
-images, valid_labels = next(valid_data_flow_2)
-valid_pred = model_1.predict(images)
+    model = model(IMAGE_SIZE)
+    model.compile(optimizer="adam", loss="binary_crossentropy", metrics=["accuracy"])
 
-valid_predictions = np.around(valid_pred)
+    lr_callback = tf.keras.callbacks.LearningRateScheduler(
+        learning_r.lrfn, verbose=True
+    )
+    earlystoping_callback = tf.keras.callbacks.EarlyStopping(
+        patience=5, restore_best_weights=True, monitor="val_accuracy", mode="auto"
+    )
 
+    STEPS_PER_EPOCH = 30 // BATCH_SIZE
 
-# plot confusion matrix
-cm = confusion_matrix(valid_labels, valid_predictions)
-print(cm)
+    HISTORY = model.fit(
+        train_data_flow,
+        shuffle=True,
+        steps_per_epoch=STEPS_PER_EPOCH,
+        epochs=EPOCHS,
+        validation_data=valid_data_flow,
+        callbacks=[lr_callback, earlystoping_callback],
+    )
 
-# Accuracy, precision and recall scores for validation set
-accuracy = accuracy_score(valid_labels, valid_predictions)
-precision = precision_score(valid_labels, valid_predictions)
-recall = recall_score(valid_labels, valid_predictions)
+    # Display training curves for modified Xception model
+    model_loss = display_training_curves(
+        HISTORY.history["loss"], HISTORY.history["val_loss"], "loss", 211
+    )
+    plt.savefig("model_loss.png", format="PNG")
 
-print("Accuracy score: " + str(accuracy))
-print("Precision score: " + str(precision))
-print("Recall score: " + str(recall))
+    model_accuracy = display_training_curves(
+        HISTORY.history["accuracy"], HISTORY.history["val_accuracy"], "accuracy", 212
+    )
+    plt.savefig("model_accuracy.png", format="PNG")
+
+    # Evaluate trained classifier
+    Xception_loss, Xception_accuracy = model.evaluate(valid_data_flow)
+
+    print("model accuracy: " + str(Xception_accuracy))
+
+    # make predictions
+    test_data = data_generator(args.directory + "validation", BATCH_SIZE)
+
+    images, valid_labels = next(test_data)
+    valid_pred = model.predict(images)
+
+    valid_predictions = np.around(valid_pred)
+
+    cm, accuracy, precision, recall = metrics(valid_labels, valid_predictions)
+
+    # print confusion matrix
+    print(cm)
+
+    # print metrics
+    print("Accuracy score: " + str(accuracy))
+    print("Precision score: " + str(precision))
+    print("Recall score: " + str(recall))
