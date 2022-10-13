@@ -21,8 +21,7 @@ wget https://dl.fbaipublicfiles.com/GENRE/lang_title2wikidataID-normalized_with_
 wget http://dl.fbaipublicfiles.com/GENRE/titles_lang_all105_marisa_trie_with_redirect.pkl
 ```
 ### plots
-use plot_subgraph_dataset in experiments to get the plots (needs improvement to include the proper graphs with entities, candidates and node/edge names)
-place the plots in subgraph_plots/training and subgraph_plots/validation respectively inside correct and wrong directories to create dataset
+run the script plot_subgraph_dataset.py in experiments folder to create dataset in "subgraph_plots" directory. It will automatically create subdirectories named "correct" and "wrong" for gold standard and seq2seq predicted sequences respectively 
 
 ### CNN 
 run cnn_classifier in reranking to get the confusion matrix and accuracy results with plots for lr, loss and accuracy
