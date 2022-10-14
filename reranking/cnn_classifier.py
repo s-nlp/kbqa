@@ -240,3 +240,7 @@ if __name__ == "__main__":
     print("Accuracy score: " + str(accuracy))
     print("Precision score: " + str(precision))
     print("Recall score: " + str(recall))
+<<<<<<< HEAD
+=======
+
+>>>>>>> master

@@ -5,7 +5,7 @@ import datasets
 from typing import Dict, Tuple
 from pathlib import Path
 from config import SEQ2SEQ_AVAILABLE_HF_PRETRAINED_MODEL_NAMES
-from caches.wikidata_redirects import WikidataRedirectsCache
+from wikidata.wikidata_redirects import WikidataRedirectsCache
 
 
 def load_model_and_tokenizer_by_name(

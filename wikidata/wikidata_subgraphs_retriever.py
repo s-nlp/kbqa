@@ -2,16 +2,13 @@ import time
 import sys
 import networkx as nx
 import matplotlib.pyplot as plt
-from caches.base import CacheBase
+from wikidata.base import WikidataBase
 from SPARQLWrapper import SPARQLWrapper, JSON
-from caches.wikidata_entity_to_label import WikidataEntityToLabel
-from caches.wikidata_shortest_path import WikidataShortestPathCache
-
-# from mGENRE_MEL.genre.trie import Trie, MarisaTrie
-# from mGENRE_MEL.fairseq_model import mGENRE
+from wikidata.wikidata_entity_to_label import WikidataEntityToLabel
+from wikidata.wikidata_shortest_path import WikidataShortestPathCache
 
 
-class SubgraphsRetriever(CacheBase):
+class SubgraphsRetriever(WikidataBase):
     """class for extracting subgraphs given the entities and candidate"""
 
     def __init__(
@@ -20,14 +17,15 @@ class SubgraphsRetriever(CacheBase):
         shortest_path: WikidataShortestPathCache,
         edge_between_path: bool = False,
         lang: str = "en",
-        url: str = "https://query.wikidata.org/sparql",
+        sparql_endpoint: str = None,
         cache_dir_path: str = "./cache_store",
     ) -> None:
-        super().__init__(cache_dir_path, "wikidata_shortest_paths_edges.pkl")
+        super().__init__(
+            cache_dir_path, "wikidata_shortest_paths_edges.pkl", sparql_endpoint
+        )
         self.cache = {}
         self.load_from_cache()
         self.entity2label = entity2label
-        self.url = url
         self.shortest_path = shortest_path
         self.edge_between_path = edge_between_path
         self.lang = lang
@@ -181,7 +179,7 @@ class SubgraphsRetriever(CacheBase):
             query = query.replace("VALUE", entity)
             query = query.replace("LANGUAGE", self.lang)
 
-            sparql = SPARQLWrapper(self.url, agent=user_agent)
+            sparql = SPARQLWrapper(self.sparql_endpoint, agent=user_agent)
             sparql.setQuery(query)
             sparql.setReturnFormat(JSON)
             edges = sparql.query().convert()
