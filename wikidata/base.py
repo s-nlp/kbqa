@@ -36,6 +36,6 @@ class WikidataBase(CacheBase):
 
         self.cache = {}
         self.load_from_cache()
-    
+
     def _wikidata_uri_to_id(self, uri):
         return uri.split("/")[-1].split("-")[0]

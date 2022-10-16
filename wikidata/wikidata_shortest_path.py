@@ -1,3 +1,5 @@
+# pylint: disable=no-else-raise,unnecessary-lambda,raise-missing-from
+
 from typing import List
 from wikidata.base import WikidataBase
 import requests
@@ -101,24 +103,16 @@ class WikidataShortestPathCache(WikidataBase):
             return pathes[0]
         else:
             return pathes
-        
-            
+
     def _extract_ids_from_path(self, path: List[str]) -> List[str]:
-        if isinstance(path[0], list): # with edges case
+        if isinstance(path[0], list):  # with edges case
             results = []
             for _path in path:
-                results.append([
-                    self._wikidata_uri_to_id(entity)
-                    for entity in _path
-                ])
+                results.append([self._wikidata_uri_to_id(entity) for entity in _path])
             return results
 
-        else: # without edges case
-            return [
-                self._wikidata_uri_to_id(entity)
-                for entity in path
-            ]
-
+        else:  # without edges case
+            return [self._wikidata_uri_to_id(entity) for entity in path]
 
     def _extract_pathes(self, path_data, return_edges) -> List[List[str]]:
         if self.engine == "blazegraph":
@@ -152,15 +146,16 @@ class WikidataShortestPathCache(WikidataBase):
                     for path in pathes
                 ]
 
-            pathes = list(path for path,_ in groupby(pathes))
-            
+            pathes = list(path for path, _ in groupby(pathes))
+
             # In some cases, gprahDB can return not only shortest path but pathes with shortest path length + 1 pathes
             # For that case, we filter it
-            pathes = list(next(
-                groupby(sorted(pathes, key=lambda p: len(p)), key=lambda p: len(p))
-            )[1])
+            pathes = list(
+                next(
+                    groupby(sorted(pathes, key=lambda p: len(p)), key=lambda p: len(p))
+                )[1]
+            )
             return pathes
-
 
     def _request_path_data(self, item1, item2):
         if self.engine == "blazegraph":
@@ -214,7 +209,7 @@ class WikidataShortestPathCache(WikidataBase):
                     url,
                     params={"format": "json", "query": query},
                     headers={"Accept": "application/json"},
-                    timeout=30,
+                    timeout=90,
                 )
                 if request.status_code >= 500 and request.status_code < 600:
                     return None
@@ -225,13 +220,15 @@ class WikidataShortestPathCache(WikidataBase):
                     return None
                 else:
                     return data["results"]["bindings"]
-            
+
             except (requests.exceptions.Timeout, requests.exceptions.ConnectTimeout):
                 return None
 
             except ValueError as exception:
-                print(f"ValueERROR with request query:    {query}\n{str(exception)}")
-                print("sleep 60...")
+                logging.warning(
+                    f"ValueERROR with request query:    {query}\n{str(exception)}"
+                )
+                logging.info("sleep 60...")
                 time.sleep(60)
                 return _try_get_path_data(query, url)
 

@@ -1,11 +1,24 @@
+# pylint: disable=no-else-continue
+
 import time
 import sys
+from typing import Optional, List
 import networkx as nx
+import enum
+import logging
 import matplotlib.pyplot as plt
 from wikidata.base import WikidataBase
 from SPARQLWrapper import SPARQLWrapper, JSON
 from wikidata.wikidata_entity_to_label import WikidataEntityToLabel
 from wikidata.wikidata_shortest_path import WikidataShortestPathCache
+
+
+class SubgraphNodeType(str, enum.Enum):
+    """SubgraphNodeType - Enum class with types of subgraphs nodes"""
+
+    INTERNAL = "Internal"
+    QUESTIONS_ENTITY = "Question entity"
+    ANSWER_CANDIDATE_ENTITY = "Answer candidate entity"
 
 
 class SubgraphsRetriever(WikidataBase):
@@ -30,79 +43,75 @@ class SubgraphsRetriever(WikidataBase):
         self.edge_between_path = edge_between_path
         self.lang = lang
 
-    def get_path(self, entity, candidate):
-        """
-        given 1 entity to 1 candidate, return the shortest path from
-        said entity->candidate
-        """
-        path = self.shortest_path.get_shortest_path(entity, candidate)
-        path_clean = []
+    def get_subgraph(
+        self, entities: List[str], candidate: str, number_of_pathes: Optional[int] = 10
+    ):
+        """Extract subgraphs given all shortest paths and candidate
 
-        # extracting the entity ID only
-        for node in path:
-            entity_id = node.split("/")[-1]
-            # in case we see nodes like P136-blah-blah
-            entity_id = entity_id.split("-")[0]
-            path_clean.append(entity_id)
-        return path_clean
+        Args:
+            entities (List[str]): List of question entities identifiest
+            candidate (str): Identifier of answer candidate entity
+            number_of_pathes (Optional[int], optional): maximum number of shortest pathes that will queried from KG
+                for each pair question entity and candidate entiry.
+                Defaults to None.
 
-    def get_paths(self, entities, candidate, is_entities2candidate):
+        Returns:
+            _type_: _description_
         """
-        return ALL shortest paths from the given entities->candidate
-        or candidate->entities.
-        """
-        paths = []
-
+        # Query shortest pathes between entities and candidate
+        pathes = []
         for entity in entities:
-            if is_entities2candidate is True:  # entity2candidate
-                paths.append(self.get_path(entity=entity, candidate=candidate))
-            else:  # candidate2entity
-                paths.append(self.get_path(entity=candidate, candidate=entity))
+            e2c_pathes = self.shortest_path.get_shortest_path(
+                entity,
+                candidate,
+                return_edges=False,
+                return_only_first=False,
+                return_id_only=True,
+            )
+            c2e_pathes = self.shortest_path.get_shortest_path(
+                candidate,
+                entity,
+                return_edges=False,
+                return_only_first=False,
+                return_id_only=True,
+            )
 
-        return paths
-
-    def get_undirected_shortest_path(self, entities2candidate, candidate2entities):
-        """
-        given the shortest path from entities->candidate and candidate->entities,
-        return the shorter paths, thus will be shortest paths in BOTH direction
-        """
-        res = []
-        for e2c, c2e in zip(entities2candidate, candidate2entities):
-            # if we get both NULL results, there is no shortest paths
-            if not e2c and not c2e:
-                raise Exception("NO SHORTEST PATH FOUND")
-
-            # e2c and c2e both returns non NULL results
-            if e2c and c2e:
-                # see which path is shorter
-                shorter_path = e2c if len(e2c) < len(c2e) else c2e
+            # If pathes not exist in one way, just take other
+            if e2c_pathes is None and c2e_pathes is not None:
+                pathes.extend(c2e_pathes[:number_of_pathes])
+                continue
+            elif c2e_pathes is None and e2c_pathes is not None:
+                pathes.extend(e2c_pathes[:number_of_pathes])
+                continue
+            elif (
+                e2c_pathes is None and e2c_pathes is None
+            ):  # If no shortest path for bouth directions
+                pathes.extend([[entity, candidate]])
             else:
-                # shorter path is the non empty list
-                shorter_path = e2c if not c2e else c2e
-            res.append(shorter_path)
-        return res
-
-    def get_subgraph(self, entities, candidate):
-        """
-        extract subgraphs given all shortest paths and candidate
-        """
-        # checking the shortests paths from both directions
-        entity2candidate = self.get_paths(
-            entities, candidate, is_entities2candidate=True
-        )
-        candidate2entity = self.get_paths(
-            entities, candidate, is_entities2candidate=False
-        )
-
-        # given the shortest paths from both direction, find the shorter path
-        paths = self.get_undirected_shortest_path(entity2candidate, candidate2entity)
+                # Take shortest version of pathes
+                # If lengths of shortest pathes same for bouth directions, will take pathes from Question to candidate
+                if len(e2c_pathes[0]) > len(c2e_pathes[0]):
+                    pathes.extend(c2e_pathes[:number_of_pathes])
+                else:
+                    pathes.extend(e2c_pathes[:number_of_pathes])
 
         if self.edge_between_path is True:
-            res = self.subgraph_with_connection(paths)
+            graph = self.subgraph_with_connection(pathes)
         else:
-            res = self.subgraph_without_connection(paths)
+            graph = self.subgraph_without_connection(pathes)
 
-        return res
+        # Fill node attributes information
+        for node in graph:
+            if node == candidate:
+                graph.nodes[node][
+                    "node_type"
+                ] = SubgraphNodeType.ANSWER_CANDIDATE_ENTITY
+            elif node in entities:
+                graph.nodes[node]["node_type"] = SubgraphNodeType.QUESTIONS_ENTITY
+            else:
+                graph.nodes[node]["node_type"] = SubgraphNodeType.INTERNAL
+
+        return graph
 
     def subgraph_with_connection(self, paths):
         """
@@ -192,17 +201,11 @@ class SubgraphsRetriever(WikidataBase):
             return edges
 
         except ValueError:
-            print("sleep 60...")
+            logging.info("sleep 60...")
             time.sleep(60)
             return self.get_edges(query)
 
-        except Exception:
-            print(f"ERROR with request query:    {query}")
-            print("sleep 60...")
-            time.sleep(60)
-            return self.get_edges(query)
-
-    def visualize_subgraph(self, graph, entities, candidate):
+    def visualize_subgraph(self, graph):
         """
         plot the subgraph
         """
@@ -214,9 +217,12 @@ class SubgraphsRetriever(WikidataBase):
         # red for candidate, green for entities, pink for everything else
         color_map = []
         for node in graph:
-            if node == candidate:
+            if (
+                graph.nodes[node]["node_type"]
+                == SubgraphNodeType.ANSWER_CANDIDATE_ENTITY
+            ):
                 color_map.append("coral")
-            elif node in entities:
+            elif graph.nodes[node]["node_type"] == SubgraphNodeType.QUESTIONS_ENTITY:
                 color_map.append("deepskyblue")
             else:
                 color_map.append("lightgray")
