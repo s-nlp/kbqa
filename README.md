@@ -29,3 +29,10 @@ By default, used query.wikidata.org
 SPARQL_ENDPOINT = "https://query.wikidata.org/sparql"
 SPARQL_ENGINE = "blazegraph"
 ```
+
+For usage graphDB instance, write following config and do not forget to forward 7200 port to your machine  
+```python
+SPARQL_ENDPOINT = "http://localhost:7200/repositories/wikidata"
+SPARQL_ENGINE = "graphdb"
+```
+

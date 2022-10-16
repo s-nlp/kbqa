@@ -4,6 +4,7 @@ import requests
 import time
 from config import SPARQL_ENGINE
 import base64
+import logging
 from itertools import groupby
 
 
@@ -45,7 +46,12 @@ class WikidataShortestPathCache(WikidataBase):
         self.load_from_cache()
 
     def get_shortest_path(
-        self, item1, item2, return_only_first=True, return_edges=False
+        self,
+        item1,
+        item2,
+        return_only_first=True,
+        return_edges=False,
+        return_id_only=False,
     ) -> List:
         """get_shortest_path
 
@@ -58,6 +64,8 @@ class WikidataShortestPathCache(WikidataBase):
                 Defaults to True.
             return_edges (bool, optional): Graphdb engine can return shortes path with edges.
                 If False, it will work like Blazegraph, if True
+            return_id_only (bool, optional): If True, will return pathes with only ID
+                without other URI information. Default False
 
         Returns:
             list: shortest path or list of shortest pathes
@@ -65,12 +73,13 @@ class WikidataShortestPathCache(WikidataBase):
         if item1 is None or item2 is None:
             return None
 
-        if self.engine == "blazegraph" and (
-            return_only_first is False or return_edges is True
-        ):
-            raise ValueError(
-                "For Blazegraph engine, return_only_first must be only True and return_edges must be False"
-            )
+        if self.engine == "blazegraph":
+            if return_edges is True:
+                raise ValueError(
+                    "For Blazegraph engine, return_only_first must be only True and return_edges must be False"
+                )
+            elif return_only_first is False:
+                logging.warning("For Blazegraph engine, only one path will be returned")
 
         key = (item1, item2)
 
@@ -78,13 +87,40 @@ class WikidataShortestPathCache(WikidataBase):
             path_data = self.cache[key]
         else:
             path_data = self._request_path_data(key[0], key[1])
-            if path_data is not None:
-                self.cache[key] = path_data
-                self.save_cache()
+            self.cache[key] = path_data
+            self.save_cache()
 
         if path_data is None:
             return None
 
+        pathes = self._extract_pathes(path_data, return_edges)
+        if return_id_only is True:
+            pathes = [self._extract_ids_from_path(path) for path in pathes]
+
+        if return_only_first is True:
+            return pathes[0]
+        else:
+            return pathes
+        
+            
+    def _extract_ids_from_path(self, path: List[str]) -> List[str]:
+        if isinstance(path[0], list): # with edges case
+            results = []
+            for _path in path:
+                results.append([
+                    self._wikidata_uri_to_id(entity)
+                    for entity in _path
+                ])
+            return results
+
+        else: # without edges case
+            return [
+                self._wikidata_uri_to_id(entity)
+                for entity in path
+            ]
+
+
+    def _extract_pathes(self, path_data, return_edges) -> List[List[str]]:
         if self.engine == "blazegraph":
             path = [
                 r["out"]["value"]
@@ -93,7 +129,7 @@ class WikidataShortestPathCache(WikidataBase):
                     key=lambda r: float(r["depth"]["value"]),
                 )
             ]
-            return path
+            return [path]
 
         else:
             # pathIndex - index of path. Results can include a lot of pathes
@@ -116,10 +152,15 @@ class WikidataShortestPathCache(WikidataBase):
                     for path in pathes
                 ]
 
-            if return_only_first:
-                return pathes[0]
-            else:
-                return pathes
+            pathes = list(path for path,_ in groupby(pathes))
+            
+            # In some cases, gprahDB can return not only shortest path but pathes with shortest path length + 1 pathes
+            # For that case, we filter it
+            pathes = list(next(
+                groupby(sorted(pathes, key=lambda p: len(p)), key=lambda p: len(p))
+            )[1])
+            return pathes
+
 
     def _request_path_data(self, item1, item2):
         if self.engine == "blazegraph":
@@ -173,24 +214,30 @@ class WikidataShortestPathCache(WikidataBase):
                     url,
                     params={"format": "json", "query": query},
                     headers={"Accept": "application/json"},
+                    timeout=30,
                 )
+                if request.status_code >= 500 and request.status_code < 600:
+                    return None
+
                 data = request.json()
 
                 if len(data["results"]["bindings"]) == 0:
                     return None
                 else:
                     return data["results"]["bindings"]
+            
+            except (requests.exceptions.Timeout, requests.exceptions.ConnectTimeout):
+                return None
 
-            except ValueError:
+            except ValueError as exception:
+                print(f"ValueERROR with request query:    {query}\n{str(exception)}")
                 print("sleep 60...")
                 time.sleep(60)
                 return _try_get_path_data(query, url)
 
             except Exception as exception:
-                print(f"ERROR with request query:    {query}\n{str(exception)}")
-                print("sleep 60...")
-                time.sleep(60)
-                return _try_get_path_data(query, url)
+                logging.error(str(exception))
+                raise Exception(exception)
 
         return _try_get_path_data(query, self.sparql_endpoint)
 
