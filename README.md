@@ -43,6 +43,22 @@ After running the above file, the data (`.pkl`) and the meta files (`.json`) wil
 
 Each subgraphs and its meta file will be stored individually. The meta files will be stored in `meta_sgements` while the subgraphs files will be stored in `subgraphs_segments`. You can match the subgraph to its meta file by the `id`. For instance, the subgraph file `graph_id_0.pkl` will corresponds to `meta_id_0.json`. 
 
+### Pygraphviz
+
+Install graphviz version 2.43.0 (0) manually
+  
+### Plots
+run the script plot_subgraph_dataset_issue48.py in experiments folder to create dataset in "subgraph_plots" directory. The script auto distributes correct and wrong candidate graphs for the corresponding graph types and names the directory according to graph type.
+- The argument `--json_graphs_directory` takes the directory path for subgraphs in json format.
+- The argument `--meta_files_directory"` takes the directory path for meta files for corresponding subgraphs.
+- The argument `--graph_type"` takes in a string as input, namely 'nx' or 'viz' for the networkx or graphviz format plots.
+
+### CNN 
+run cnn_classifier.py in reranking to get the confusion matrix and accuracy results with plots for lr, loss and accuracy.
+- The argument `--batch_size` is for training batch size. 
+- The argument `--train_epochs` is for number of training epochs.
+- The argument `--directory` is for directory path of the plots (with "correct" and "wrong" sub directories).
+- The argument `--test_samples` is for the number of samples to create the set. 
 
 ### Wikidata utils
 Wikidata SPARQL endpoint and Engine can be configured in `config.py`
