@@ -20,3 +20,4 @@ jupyterlab
 spacy
 tensorflow
 keras
+sklearn
