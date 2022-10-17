@@ -18,3 +18,5 @@ bs4
 marisa_trie
 jupyterlab
 spacy
+tensorflow
+keras
