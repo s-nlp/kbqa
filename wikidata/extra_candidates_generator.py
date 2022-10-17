@@ -72,7 +72,6 @@ class ExtraCandidateGenerator(CacheBase):
     def get_2_hope_neighbours(self, candidate_name):
         """Function for retrieving the 2-hope neighbours of entity"""
         if candidate_name not in self.cache["2_hope"]:
-            candidate = self.label2entity.get_id(candidate_name)
             nodes_1 = self.get_neighbours_of_candidate(candidate_name)
             nodes_2 = np.unique(
                 sum(
