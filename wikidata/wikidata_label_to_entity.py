@@ -7,7 +7,6 @@
 
 import time
 import requests
-import logging
 from wikidata.base import WikidataBase
 from wikidata.wikidata_redirects import WikidataRedirectsCache
 
@@ -48,6 +47,7 @@ class WikidataLabelToEntity(WikidataBase):
             "<ENTITY_NAME>", entity_name
         )
         return query
+
     def _request_wikidata(self, entity_name):
         def _try_request(entity_name, url, continue_redirecting=True):
             query = self._create_query(entity_name)
