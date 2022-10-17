@@ -17,4 +17,6 @@ requests
 bs4
 marisa_trie
 jupyterlab
+scikit-learn
+tensorflow
 spacy
