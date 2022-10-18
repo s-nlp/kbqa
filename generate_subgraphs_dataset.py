@@ -81,7 +81,7 @@ def prepare_csv(path):
     """
     df = pd.read_csv(path)
     print("loaded results.csv")
-    return df.head(2)
+    return df.head(100)
 
 
 def load_pkl(lang_title_wikidata_id_path, marisa_trie_path):
@@ -132,7 +132,13 @@ def get_entities_batch(genre_entities, questions_arr, batch_size):
 
 
 def prepare_questions_entities_candidates(
-    df, questions_entities_candidates, genre_entities, label2entity, batch_size, num_ans
+    df,
+    questions_entities_candidates,
+    genre_entities,
+    label2entity,
+    batch_size,
+    num_ans,
+    file_path,
 ):
     """
     prepare all questions, question entities and candidates for subgraph generation
@@ -165,16 +171,17 @@ def prepare_questions_entities_candidates(
         new_question_obj.populate_candidates(candidates, label2entity, num_ans)
         questions_entities_candidates.append(new_question_obj)
 
+    # save meta info after processing
+    save_meta_info(questions_entities_candidates, file_path)
     return questions_entities_candidates
 
 
-def get_subgraphs(questions_entities_candidates, subgraph_obj, num_paths, file_path):
+def get_subgraphs(questions_entities_candidates, subgraph_obj, num_paths):
     """
     fetch the subgraphs to all of our questions
     """
     subgraphs = []
-    for idx, question in enumerate(tqdm(questions_entities_candidates)):
-        save_meta_info(question, idx, file_path)
+    for question in tqdm(questions_entities_candidates):
         candidates = question.candidate_ids
         entities = question.entity_ids
         question.display()
@@ -202,14 +209,15 @@ def subgraphs_to_json(subgraphs, file_path):
             json.dump(nx.node_link_data(subgraph), file_handler)
 
 
-def save_meta_info(question_obj, idx, file_path):
+def save_meta_info(questions_entities_candidates, file_path):
     """
     save meta info to json file at specified path
     """
-    with open(file_path + "meta.json", "w") as file_handler:
-        json.dump(
+    res_dict = []
+    for idx, question_obj in enumerate(questions_entities_candidates):
+        res_dict.append(
             {
-                "_idx": idx,
+                "idx": idx,
                 "original_question": question_obj.original_question,
                 "ner_question": question_obj.ner_question,
                 "question_entity_id": question_obj.entity_ids,
@@ -219,7 +227,11 @@ def save_meta_info(question_obj, idx, file_path):
                 "candidate_text": question_obj.candidate_texts[1:],
                 "target_id": question_obj.candidate_ids[0],
                 "target_text": question_obj.candidate_texts[0],
-            },
+            }
+        )
+    with open(file_path + "meta.json", "w") as file_handler:
+        json.dump(
+            res_dict,
             file_handler,
         )
 
@@ -266,6 +278,7 @@ if __name__ == "__main__":
         label2entity,
         args.batch_size,
         args.num_bad_candidates,
+        args.save_dir,
     )
 
     # getting our subgraphs
@@ -280,7 +293,6 @@ if __name__ == "__main__":
         questions_entities_candidates,
         subgraph_obj,
         args.number_of_pathes,
-        args.save_dir,
     )
 
     # saving the final subgraphs
