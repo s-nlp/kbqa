@@ -27,6 +27,7 @@ parser.add_argument(
 )
 parser.add_argument("--dataset_name", default="../wikidata_simplequestions/")
 parser.add_argument("--dataset_config_name", default="answerable_en")
+parser.add_argument("--dataset_evaluation_split", default="test")
 parser.add_argument("--dataset_cache_dir", default="../datasets/")
 parser.add_argument("--save_dir", default="../runs")
 parser.add_argument(
@@ -157,7 +158,7 @@ def evaluate(args):
         args.dataset_config_name,
         tokenizer,
         args.dataset_cache_dir,
-        "test",
+        args.dataset_evaluation_split,
     )
 
     results_df, report = make_report(
