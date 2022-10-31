@@ -15,7 +15,8 @@ from transformers import (
 def train(
     model: PreTrainedModel,
     tokenizer: PreTrainedTokenizer,
-    dataset: datasets.Dataset,
+    train_dataset: datasets.Dataset,
+    valid_dataset: datasets.Dataset,
     output_dir: str = "./runs/models/model",
     logging_dir: str = "./runs/logs/model",
     save_total_limit: int = 5,
@@ -36,7 +37,8 @@ def train(
     Args:
         model: (PreTrainedModel): HF Model for training
         tokenizer: (PreTrainedTokenizer): HF Tokenizer for training (provided with model usually)
-        dataset (datasets.Dataset): HF Dataset object with 'train' and 'validation'
+        train_dataset (datasets.Dataset): HF Dataset object for traning
+        valid_dataset (datasets.Dataset): HF Dataset object for validation
         output_dir (str): Path to directory for storing model's checkpoints . Defaults to './runs/models/model'
         logging_dir (str): Path to directory for storing traning logs . Defaults to './runs/logs/model'
         save_total_limit (int, optional): Total limit for storing model's checkpoints. Defaults to 5.
@@ -66,7 +68,7 @@ def train(
             Default to 'default'
 
     Returns:
-        Tuple[Seq2SeqTrainer, PreTrainedModel, datasets.arrow_dataset.Dataset]: _description_
+        Seq2SeqTrainer: Trained after traning and validation
     """
     training_args = Seq2SeqTrainingArguments(
         output_dir=output_dir,
@@ -89,8 +91,8 @@ def train(
         trainer = Seq2SeqTrainer(
             model=model,
             args=training_args,
-            train_dataset=dataset["train"],
-            eval_dataset=dataset["validation"],
+            train_dataset=train_dataset,
+            eval_dataset=valid_dataset,
             tokenizer=tokenizer,
         )
     elif trainer_mode == "Seq2SeqWikidataRedirectsTrainer":
@@ -99,8 +101,8 @@ def train(
         trainer = Seq2SeqWikidataRedirectsTrainer(
             model=model,
             args=training_args,
-            train_dataset=dataset["train"],
-            eval_dataset=dataset["validation"],
+            train_dataset=train_dataset,
+            eval_dataset=valid_dataset,
             tokenizer=tokenizer,
             redirect_cache=redirect_cache,
             compute_metrics=compute_metrics,
@@ -113,4 +115,4 @@ def train(
 
     trainer.train()
 
-    return trainer, model, dataset
+    return trainer

@@ -1,9 +1,8 @@
-# pylint: disable=missing-module-docstring
-# pylint: disable=missing-class-docstring
-# pylint: disable=missing-function-docstring
+# pylint: disable=logging-format-interpolation
 
 import time
 import requests
+import logging
 from wikidata.base import WikidataBase
 from wikidata.wikidata_redirects import WikidataRedirectsCache
 
@@ -31,6 +30,8 @@ class WikidataLabelToEntity(WikidataBase):
         return self.cache.get(entity_name)
 
     def _create_query(self, entity_name):
+        if not isinstance(entity_name, str):
+            entity_name = str(entity_name)
         query = """
         PREFIX schema: <http://schema.org/>
         PREFIX wikibase: <http://wikiba.se/ontology#>
@@ -57,8 +58,12 @@ class WikidataLabelToEntity(WikidataBase):
 
             return data["results"]["bindings"][0]["item"]["value"].split("/")[-1]
 
+        except requests.exceptions.ConnectionError as connection_exception:
+            logging.error(str(connection_exception))
+            raise connection_exception
+
         except ValueError:
-            print("sleep 60...")
+            logging.info("sleep 60...")
             time.sleep(60)
             return self._try_request(query, url)
 
@@ -73,7 +78,9 @@ class WikidataLabelToEntity(WikidataBase):
         if res is not None:
             return res
 
-        print('ERROR with entity "{}", fetching for redirects'.format(entity_name))
+        logging.warning(
+            'ERROR with entity "{}", fetching for redirects'.format(entity_name)
+        )
         redirects = self.redirect_cache.get_redirects(entity_name)
         if redirects == "No results found":
             return ""

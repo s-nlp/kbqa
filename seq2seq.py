@@ -129,7 +129,8 @@ def train(args):
     train_seq2seq(
         model=model,
         tokenizer=tokenizer,
-        dataset=dataset,
+        train_dataset=dataset["train"],
+        valid_dataset=dataset["valid"],
         output_dir=output_dir,
         logging_dir=logging_dir,
         num_train_epochs=args.num_train_epochs,
