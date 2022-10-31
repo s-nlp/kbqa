@@ -1,4 +1,5 @@
 from caches.base import CacheBase
+import torch
 
 
 class GENREWikidataEntityesCache(CacheBase):
@@ -33,8 +34,9 @@ class GENREWikidataEntityesCache(CacheBase):
             batched_results = self._generate(batch, beam)
             for idx_from_batch, sent in enumerate(batch):
                 global_idx = sentences.index(sent)
-                results[global_idx] = batched_results[idx_from_batch]
-                self.cache[sent] = batched_results[idx_from_batch]
+                res = self._mgenre_cache_formatter(batched_results[idx_from_batch])
+                results[global_idx] = res
+                self.cache[sent] = res
 
                 self.save_cache()
 
@@ -60,3 +62,11 @@ class GENREWikidataEntityesCache(CacheBase):
             marginalize=True,
             verbose=True,
         )
+
+    def _mgenre_cache_formatter(self, cache):
+        for item in cache:
+            if isinstance(item["score"], torch.Tensor):
+                item["score"] = item["score"].cpu().numpy().tolist()
+            if isinstance(item["scores"], torch.Tensor):
+                item["scores"] = item["scores"].cpu().numpy().tolist()
+        return cache
