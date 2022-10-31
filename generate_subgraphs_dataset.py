@@ -4,6 +4,7 @@ import torch
 import argparse
 import json
 from tqdm import tqdm
+import shutil
 
 from caches.ner_to_sentence_insertion import NerToSentenceInsertion
 from genre.fairseq_model import mGENRE  # pylint: disable=import-error,import-error
@@ -72,16 +73,21 @@ parser.add_argument(
     default=50,
     type=int,
 )
+parser.add_argument(
+    "--num_rows",
+    default=100,
+    type=int,
+)
 parser.add_argument("--save_dir", default="./subgraphs_dataset/dataset_v0/", type=str)
 
 
-def prepare_csv(path):
+def prepare_csv(path, num_rows):
     """
     return the pd df with num_ans answers to our question
     """
     df = pd.read_csv(path)
     print("loaded results.csv")
-    return df.head(100)
+    return df.head(num_rows)
 
 
 def load_pkl(lang_title_wikidata_id_path, marisa_trie_path):
@@ -176,12 +182,18 @@ def prepare_questions_entities_candidates(
     return questions_entities_candidates
 
 
-def get_subgraphs(questions_entities_candidates, subgraph_obj, num_paths):
+def get_subgraphs(
+    questions_entities_candidates,
+    subgraph_obj,
+    num_paths,
+    dataset_extension_type,
+    save_dir,
+):
     """
     fetch the subgraphs to all of our questions
     """
     subgraphs = []
-    for question in tqdm(questions_entities_candidates):
+    for idx, question in enumerate(tqdm(questions_entities_candidates)):
         candidates = question.candidate_ids
         entities = question.entity_ids
         question.display()
@@ -189,7 +201,14 @@ def get_subgraphs(questions_entities_candidates, subgraph_obj, num_paths):
         for candidate in tqdm(candidates):
             subgraph = subgraph_obj.get_subgraph(entities, candidate, num_paths)
             subgraphs.append(subgraph)
-    return subgraphs
+
+        subgraph_path = save_dir + "_{}.{}".format(str(idx), dataset_extension_type)
+        print(subgraph_path)
+        if dataset_extension_type == "json":
+            subgraphs_to_json(subgraphs, subgraph_path)
+        else:
+            subgraphs_to_pkl(subgraphs, subgraph_path)
+    # return subgraphs
 
 
 def subgraphs_to_pkl(subgraphs, file_path):
@@ -249,7 +268,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # get our csv and preprocess the question
-    df = prepare_csv(args.model_result_path)
+    df = prepare_csv(args.model_result_path, args.num_rows)
 
     # load pkl & model to create genre_entities
     lang_title_wikidata_id, trie = load_pkl(
@@ -289,22 +308,16 @@ if __name__ == "__main__":
         shortest_path,
         edge_between_path=args.edge_between_path,
     )
-    subgraphs = get_subgraphs(
+    save_path = args.save_dir + "dataset_fragments/subgraphs_edges_between_{}".format(
+        str(args.edge_between_path)
+    )
+    # subgraphs =
+    get_subgraphs(
         questions_entities_candidates,
         subgraph_obj,
         args.number_of_pathes,
+        args.dataset_extension_type,
+        save_path,
     )
-
-    # saving the final subgraphs
-    if args.dataset_extension_type == "pkl":
-        subgraphs_to_pkl(
-            subgraphs,
-            args.save_dir
-            + "/subgraphs_edges_between_{}.pkl".format(str(args.edge_between_path)),
-        )
-    else:
-        subgraphs_to_json(
-            subgraphs,
-            args.save_dir
-            + "/subgraphs_edges_between_{}.json".format(str(args.edge_between_path)),
-        )
+    # zipping the final subgraphs file
+    shutil.make_archive("final_datsetv0", "zip", "./subgraphs_dataset/dataset_v0/dataset_fragments")
