@@ -19,6 +19,9 @@ class NerToSentenceInsertion(CacheBase):
 
         self.model = spacy.load(model_path)
 
+    def return_num_entities(self, ner_question):
+        return ner_question.count("[START]")
+
     def entity_labeling(self, test_question):
         """First lettters capitalization and START/END tokens for entities insertion"""
 
