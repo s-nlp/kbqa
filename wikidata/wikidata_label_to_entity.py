@@ -30,6 +30,8 @@ class WikidataLabelToEntity(WikidataBase):
         return self.cache.get(entity_name)
 
     def _create_query(self, entity_name):
+        if not isinstance(entity_name, str):
+            entity_name = str(entity_name)
         query = """
         PREFIX schema: <http://schema.org/>
         PREFIX wikibase: <http://wikiba.se/ontology#>
