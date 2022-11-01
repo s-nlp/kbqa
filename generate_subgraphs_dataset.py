@@ -165,7 +165,7 @@ def prepare_questions_entities_candidates(
 
     for idx, generated_entities in enumerate(tqdm(generated_entities)):
         # creating a new question, fetch the english entities of the question
-        num_ner_entities = ner.return_num_entities(ner_questions[idx])
+        num_ner_entities = ner.return_num_entities(original_questions[idx])
         new_question_obj = QuestionEntitiesCandidates(
             original_questions[idx], ner_questions[idx]
         )
@@ -294,7 +294,7 @@ if __name__ == "__main__":
         args.num_bad_candidates,
     )
 
-    (Path(save_dir)).mkdir(parents=True, exist_ok=True)
+    (Path(args.save_dir)).mkdir(parents=True, exist_ok=True)
     # getting our subgraphs
     entity2label = WikidataEntityToLabel()
     shortest_path = WikidataShortestPathCache()
