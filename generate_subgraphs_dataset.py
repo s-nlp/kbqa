@@ -76,7 +76,7 @@ parser.add_argument(
 )
 parser.add_argument(
     "--num_rows",
-    default=100,
+    default=5,
     type=int,
 )
 parser.add_argument("--save_dir", default="./subgraphs_dataset/dataset_v0/", type=str)
@@ -149,13 +149,24 @@ def prepare_questions_entities_candidates(
     """
     prepare all questions, question entities and candidates for subgraph generation
     """
-    original_questions = df["question"].values.tolist()
+    # getting candidates df
+    candidates_df = df.drop(columns=df.columns[:1])
     ner = NerToSentenceInsertion(model_path=args.ner_model_path)
-    df["question"] = df["question"].apply(ner.entity_labeling)
-    ner_questions = df[
-        "question"
-    ].values.tolist()  # getting questions with START and END
-    candidates_df = df.drop(columns=df.columns[:1])  # dropping questions col
+
+    def _get_ner_sentence_entities(df):
+        ner_sentence, ner_entities = ner.entity_labeling(
+            df["question"], get_num_entities=True
+        )
+        df["ner_question"] = ner_sentence
+        df["ner_entities"] = ner_entities
+        return df
+
+    ner_df = df.apply(_get_ner_sentence_entities, axis=1)
+
+    # getting ner questions & num entities
+    original_questions = ner_df["question"].values.tolist()
+    ner_questions = ner_df["ner_question"].values.tolist()
+    ner_num_entities = ner_df["ner_entities"].values.tolist()
 
     # divide our questions into n equal batches and get the entites
     generated_entities_batches = get_entities_batch(
@@ -165,7 +176,7 @@ def prepare_questions_entities_candidates(
 
     for idx, generated_entities in enumerate(tqdm(generated_entities)):
         # creating a new question, fetch the english entities of the question
-        num_ner_entities = ner.return_num_entities(original_questions[idx])
+        num_ner_entities = ner_num_entities[idx]
         new_question_obj = QuestionEntitiesCandidates(
             original_questions[idx], ner_questions[idx]
         )
@@ -194,8 +205,8 @@ def get_and_save_subgraphs(
     subgraphs = []
     subgraph_path = save_dir + "subgraph_segments"
     meta_path = save_dir + "meta_segments"
-    (Path(subgraph_path)).mkdir(parents=True, exist_ok=True)
-    (Path(meta_path)).mkdir(parents=True, exist_ok=True)
+    Path(subgraph_path).mkdir(parents=True, exist_ok=True)
+    Path(meta_path).mkdir(parents=True, exist_ok=True)
 
     idx = 0
     for question in tqdm(questions_entities_candidates):
@@ -294,7 +305,7 @@ if __name__ == "__main__":
         args.num_bad_candidates,
     )
 
-    (Path(args.save_dir)).mkdir(parents=True, exist_ok=True)
+    Path(args.save_dir).mkdir(parents=True, exist_ok=True)
     # getting our subgraphs
     entity2label = WikidataEntityToLabel()
     shortest_path = WikidataShortestPathCache()
