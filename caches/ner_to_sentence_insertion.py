@@ -19,22 +19,16 @@ class NerToSentenceInsertion(CacheBase):
 
         self.model = spacy.load(model_path)
 
-    def return_num_entities(self, ner_question):
-        nlp = self.model
-        doc = nlp(ner_question)
-        entities = [ent.text for ent in doc.ents]
-        return len(entities)
-
-    def entity_labeling(self, test_question):
+    def entity_labeling(self, test_question, get_num_entities=False):
         """First lettters capitalization and START/END tokens for entities insertion"""
 
         if test_question not in self.cache:
-
-            # NER part
-
+            # ner part
             nlp = self.model
             doc = nlp(test_question)
-            entities = ",".join([ent.text for ent in doc.ents])
+            entities_list = [ent.text for ent in doc.ents]
+            num_entities = len(entities_list)
+            entities = ",".join(entities_list)
             if entities != "":
                 index = test_question.find(entities)
                 ner_question = (
@@ -48,16 +42,17 @@ class NerToSentenceInsertion(CacheBase):
                 ner_question = "[START] " + str(test_question) + " [END]"
 
             # LargeCase part
-
             sent_split = []
             for elem in ner_question.split(" "):
                 if elem != "":
                     sent_split.append(elem[0].upper() + elem[1:])
             ner_largecase_question = " ".join(sent_split)
 
-            self.cache[test_question] = ner_largecase_question
+            self.cache[test_question] = (ner_largecase_question, num_entities)
             self.save_cache()
         else:
-            ner_largecase_question = self.cache[test_question]
+            ner_largecase_question, num_entities = self.cache[test_question]
 
+        if get_num_entities:
+            return ner_largecase_question, num_entities
         return ner_largecase_question

@@ -101,8 +101,6 @@ class QuestionEntitiesCandidates:
         """
         print out our current question, entity id, score, and candidate
         """
-        print()
         print("original question:", self.original_question)
         print("entities:", self.entity_ids)
         print("candidates:", self.candidate_ids)
-        print()
