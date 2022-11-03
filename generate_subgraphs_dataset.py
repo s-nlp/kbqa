@@ -202,7 +202,6 @@ def get_and_save_subgraphs(
     """
     fetch and save the subgraphs to all of our questions and its meta info
     """
-    subgraphs = []
     subgraph_path = save_dir + "subgraph_segments"
     meta_path = save_dir + "meta_segments"
     Path(subgraph_path).mkdir(parents=True, exist_ok=True)
