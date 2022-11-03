@@ -114,26 +114,51 @@ class SubgraphsRetriever(WikidataBase):
 
         return graph, pathes
 
-    def subgraph_with_connection(self, paths):
+    def get_distinct_nodes(self, paths):
         """
-        combine the shortest paths with the connection between the paths
+        given the said paths, return a set of distinct nodes
         """
         # distinct set of our entities in the paths
         h_vertices = set()
         for path in paths:
             for entity in path:
                 h_vertices.add(entity)
+        return h_vertices
 
-        res = self.fill_edges_in_subgraph(h_vertices)
+    def subgraph_with_connection(self, paths):
+        """
+        combine the shortest paths with the connection between the paths
+        """
+        # get subgraph w/ no edges between
+        graph_no_connection = self.subgraph_without_connection(paths)
+        for idx, path in enumerate(paths):
+            # getting the other paths beside the ones we're on
+            if idx < len(paths):
+                other_paths = paths[:idx] + paths[idx + 1 :]
+            else:
+                other_paths = paths[:idx]
+            for entity in path:
+                # distinct set of our entities in the paths
+                other_paths_nodes = self.get_distinct_nodes(other_paths)
+                other_paths_nodes.add(entity)
+
+                # only fill in edges of current node with other paths' nodes
+                if len(other_paths_nodes) > 1:
+                    res = self.fill_edges_in_subgraph(
+                        other_paths_nodes, graph_no_connection
+                    )
         return res
 
-    def fill_edges_in_subgraph(self, vertices):
+    def fill_edges_in_subgraph(self, vertices, graph=None):
         """
         given the set of nodes, fill the edges between all the nodes
         """
-        res = nx.DiGraph()
-        for entity in vertices:
-            res.add_node(entity)
+        if graph is None:
+            res = nx.DiGraph()
+            for entity in vertices:
+                res.add_node(entity)
+        else:
+            res = graph
 
         for entity in vertices:
             edges = self.get_edges(entity)
@@ -143,7 +168,8 @@ class SubgraphsRetriever(WikidataBase):
                 curr_edge = result["p"]["value"].split("/")[-1]
 
                 if neighbor_entity in vertices:
-                    res.add_edge(entity, neighbor_entity, label=curr_edge)
+                    if entity != neighbor_entity:
+                        res.add_edge(entity, neighbor_entity, label=curr_edge)
 
         return res
 
@@ -156,7 +182,6 @@ class SubgraphsRetriever(WikidataBase):
             # shortest path doesn't return the edges -> fetch the edge for the
             # current short paths
             curr_path = self.fill_edges_in_subgraph(path)
-
             # combine the currnet subgraph to res subgraph
             res = nx.compose(res, curr_path)
         return res

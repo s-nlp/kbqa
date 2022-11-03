@@ -76,7 +76,7 @@ parser.add_argument(
 )
 parser.add_argument(
     "--num_rows",
-    default=5,
+    default=2000,
     type=int,
 )
 parser.add_argument("--save_dir", default="./subgraphs_dataset/dataset_v0/", type=str)
@@ -216,7 +216,6 @@ def get_and_save_subgraphs(
 
         for cid, candidate in enumerate(tqdm(candidates)):
             subgraph, pathes = subgraph_obj.get_subgraph(entities, candidate, num_paths)
-            subgraphs.append(subgraph)
 
             # saving the meta info
             with open(Path(meta_path) / f"meta_id_{idx}.json", "w+") as f:
@@ -238,9 +237,9 @@ def get_and_save_subgraphs(
                 )
 
             if dataset_extension_type == "json":
-                subgraphs_to_json(subgraphs, subgraph_path + f"/graph_id_{idx}.json")
+                subgraphs_to_json(subgraph, subgraph_path + f"/graph_id_{idx}.json")
             else:
-                subgraphs_to_pkl(subgraphs, subgraph_path + f"/graph_id_{idx}.pkl")
+                subgraphs_to_pkl(subgraph, subgraph_path + f"/graph_id_{idx}.pkl")
             idx += 1
 
 
@@ -259,15 +258,6 @@ def subgraphs_to_json(subgraphs, file_path):
     for subgraph in subgraphs:
         with open(file_path, "w+") as file_handler:
             json.dump(nx.node_link_data(subgraph), file_handler)
-
-
-def fetch_subgraphs_from_pkl(file_path):
-    """
-    retrieving our subgraphs from pkl file
-    """
-    with open(file_path, "rb") as f:
-        subgraphs = pickle.load(f)
-    return subgraphs
 
 
 if __name__ == "__main__":
