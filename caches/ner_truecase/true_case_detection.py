@@ -9,7 +9,7 @@ from pytorch_truecaser.mylib import truecaser_predictor
 from base import CacheBase
 
 warnings.filterwarnings("ignore")
-os.rename('pytorch-truecaser', 'pytorch_truecaser')
+os.rename("pytorch-truecaser", "pytorch_truecaser")
 
 
 class TrueCaseDetection(CacheBase):
@@ -44,40 +44,43 @@ class TrueCaseDetection(CacheBase):
 
         """True case detection with NER"""
         sent_to_change = sentence_withner.replace("  ", " ")
-        sent_to_change = sent_to_change.split(' ')
-        if '' in sent_to_change:
-            sent_to_change.remove('')
+        sent_to_change = sent_to_change.split(" ")
+        if "" in sent_to_change:
+            sent_to_change.remove("")
         sent_truecase = sentence_truecase.replace("  ", " ")
-        sent_truecase = sent_truecase[8:-6].split(' ')
-        if '' in sent_truecase:
-            sent_truecase.remove('')
+        sent_truecase = sent_truecase[8:-6].split(" ")
+        if "" in sent_truecase:
+            sent_truecase.remove("")
 
-        if "[START]  [END]" not in sent_to_change and len(sent_to_change) == len(sent_truecase)+2:
+        if (
+            "[START]  [END]" not in sent_to_change
+            and len(sent_to_change) == len(sent_truecase) + 2
+        ):
             for ind, letter_pos in enumerate(sent_to_change):
-                if letter_pos == '[START]':
+                if letter_pos == "[START]":
                     id_start = ind
-                elif letter_pos == '[END]':
+                elif letter_pos == "[END]":
                     id_end = ind
             for begin in range(id_start):
                 sent_to_change[begin] = sent_truecase[begin]
-            for mid in range(id_start+1, id_end):
-                sent_to_change[mid] = sent_truecase[mid-1]
-            for end in range(id_end+1, len(sent_to_change)-1):
-                sent_to_change[end] = sent_truecase[end-2]
-            return ' '.join(sent_to_change)
-        return ' '.join(sent_truecase)
+            for mid in range(id_start + 1, id_end):
+                sent_to_change[mid] = sent_truecase[mid - 1]
+            for end in range(id_end + 1, len(sent_to_change) - 1):
+                sent_to_change[end] = sent_truecase[end - 2]
+            return " ".join(sent_to_change)
+        return " ".join(sent_truecase)
 
     def predictions_reranking(self, pred_main, pred_secondary):
         """Module for the predictions reranking"""
 
-        #pred_main, pred_secondary - string of predictions separated by comma
+        # pred_main, pred_secondary - string of predictions separated by comma
 
-        preds_main = pred_main.split(', ')
-        preds_secondary = pred_secondary.split(', ')
+        preds_main = pred_main.split(", ")
+        preds_secondary = pred_secondary.split(", ")
         preds_joined = []
         min_index = min(len(preds_main), len(preds_secondary))
 
-        #if the length of pred_main and pred_secondary coincide
+        # if the length of pred_main and pred_secondary coincide
         for k in range(min_index):
             if preds_main[k] == preds_secondary[k]:
                 preds_joined.append(preds_main[k])
@@ -85,18 +88,17 @@ class TrueCaseDetection(CacheBase):
                 preds_joined.append(preds_main[k])
                 preds_joined.append(preds_secondary[k])
 
-        #if pred_main larger than pred_secondary
+        # if pred_main larger than pred_secondary
         if len(preds_main) > len(preds_secondary):
-            diff = len(preds_main)- len(preds_secondary)
+            diff = len(preds_main) - len(preds_secondary)
             subset = preds_main[-diff:]
             for _, elem in enumerate(subset):
                 preds_joined.append(elem)
 
-        #if pred_secondary larger than pred_main
+        # if pred_secondary larger than pred_main
         elif len(preds_main) < len(preds_secondary):
-            diff = len(preds_secondary)- len(preds_main)
+            diff = len(preds_secondary) - len(preds_main)
             subset = preds_secondary[-diff:]
             for _, elem in enumerate(subset):
                 preds_joined.append(elem)
-        return ', '.join(preds_joined)
-    
+        return ", ".join(preds_joined)
