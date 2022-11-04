@@ -1,0 +1,11 @@
+FROM gcc:7.5
+
+RUN apt-get update && apt-get install -y python3-pip
+
+COPY kbqa/requirements_ner_sh.txt /
+RUN pip3 install --upgrade pip && \
+    pip3 install -r /requirements_ner_sh.txt
+
+RUN git clone https://github.com/mayhewsw/pytorch-truecaser
+
+RUN wget https://github.com/mayhewsw/pytorch-truecaser/releases/download/v1.0/wiki-truecaser-model-en.tar.gz
