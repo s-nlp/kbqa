@@ -1,8 +1,0 @@
-transformers
-omegaconf
-unidecode
-requests
-hydra-core
-bitarray
-gdown
-wikidata

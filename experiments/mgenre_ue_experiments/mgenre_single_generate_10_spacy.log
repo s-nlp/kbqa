@@ -1,29 +1,0 @@
-2022-11-01 08:12:38 | INFO | numexpr.utils | Note: NumExpr detected 32 cores but "NUMEXPR_MAX_THREADS" not set, so enforcing safe limit of 8.
-2022-11-01 08:12:38 | INFO | numexpr.utils | NumExpr defaulting to 8 threads.
-2022-11-01 08:12:39.177682: I tensorflow/core/platform/cpu_feature_guard.cc:193] This TensorFlow binary is optimized with oneAPI Deep Neural Network Library (oneDNN) to use the following CPU instructions in performance-critical operations:  AVX2 AVX512F AVX512_VNNI FMA
-To enable them in other operations, rebuild TensorFlow with the appropriate compiler flags.
-2022-11-01 08:12:39.303431: I tensorflow/core/util/util.cc:169] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
-2022-11-01 08:12:39.334069: E tensorflow/stream_executor/cuda/cuda_blas.cc:2981] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
-2022-11-01 08:12:39.989110: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library 'libnvinfer.so.7'; dlerror: libnvinfer.so.7: cannot open shared object file: No such file or directory; LD_LIBRARY_PATH: /usr/local/nvidia/lib:/usr/local/nvidia/lib64
-2022-11-01 08:12:39.989185: W tensorflow/stream_executor/platform/default/dso_loader.cc:64] Could not load dynamic library 'libnvinfer_plugin.so.7'; dlerror: libnvinfer_plugin.so.7: cannot open shared object file: No such file or directory; LD_LIBRARY_PATH: /usr/local/nvidia/lib:/usr/local/nvidia/lib64
-2022-11-01 08:12:39.989195: W tensorflow/compiler/tf2tensorrt/utils/py_utils.cc:38] TF-TRT Warning: Cannot dlopen some TensorRT libraries. If you would like to use Nvidia GPU with TensorRT, please make sure the missing libraries mentioned above are installed properly.
-2022-11-01 08:12:40.640544: E tensorflow/stream_executor/cuda/cuda_driver.cc:265] failed call to cuInit: CUDA_ERROR_NO_DEVICE: no CUDA-capable device is detected
-2022-11-01 08:12:40.640590: I tensorflow/stream_executor/cuda/cuda_diagnostics.cc:169] retrieving CUDA diagnostic information for host: 3536f1717b62
-2022-11-01 08:12:40.640597: I tensorflow/stream_executor/cuda/cuda_diagnostics.cc:176] hostname: 3536f1717b62
-2022-11-01 08:12:40.640629: I tensorflow/stream_executor/cuda/cuda_diagnostics.cc:200] libcuda reported version is: 510.85.2
-2022-11-01 08:12:40.640643: I tensorflow/stream_executor/cuda/cuda_diagnostics.cc:204] kernel reported version is: 510.85.2
-2022-11-01 08:12:40.640649: I tensorflow/stream_executor/cuda/cuda_diagnostics.cc:310] kernel version seems to match DSO: 510.85.2
-2022-11-01 08:16:47 | INFO | fairseq.file_utils | loading archive file fairseq_multilingual_entity_disambiguation
-2022-11-01 08:16:50 | INFO | fairseq.tasks.translation | [source] dictionary: 256001 types
-2022-11-01 08:16:50 | INFO | fairseq.tasks.translation | [target] dictionary: 256001 types
-spacy
-  0%|          | 0/5 [00:00<?, ?it/s]/root/.pyenv/versions/3.9.14/lib/python3.9/site-packages/fairseq-0.12.2-py3.9-linux-x86_64.egg/fairseq/search.py:205: UserWarning: __floordiv__ is deprecated, and its behavior will change in a future version of pytorch. It currently rounds toward 0 (like the 'trunc' function NOT 'floor'). This results in incorrect rounding for negative values. To keep the current behavior, use torch.div(a, b, rounding_mode='trunc'), or for actual floor division, use torch.div(a, b, rounding_mode='floor').
-  beams_buf = indices_buf // vocab_size
- 20%|██        | 1/5 [00:33<02:14, 33.67s/it] 40%|████      | 2/5 [00:56<01:21, 27.10s/it] 60%|██████    | 3/5 [01:22<00:53, 26.96s/it] 80%|████████  | 4/5 [01:56<00:29, 29.38s/it]100%|██████████| 5/5 [02:05<00:00, 22.01s/it]100%|██████████| 5/5 [02:05<00:00, 25.00s/it]
-  0%|          | 0/5 [00:00<?, ?it/s] 20%|██        | 1/5 [00:17<01:10, 17.59s/it] 40%|████      | 2/5 [00:51<01:20, 26.90s/it] 60%|██████    | 3/5 [01:15<00:51, 25.99s/it] 80%|████████  | 4/5 [01:23<00:18, 18.59s/it]100%|██████████| 5/5 [01:53<00:00, 22.73s/it]100%|██████████| 5/5 [01:53<00:00, 22.65s/it]
-2022-11-01 08:21:05 | INFO | fairseq.file_utils | loading archive file fairseq_multilingual_entity_disambiguation
-2022-11-01 08:21:08 | INFO | fairseq.tasks.translation | [source] dictionary: 256001 types
-2022-11-01 08:21:08 | INFO | fairseq.tasks.translation | [target] dictionary: 256001 types
-  0%|          | 0/5 [00:00<?, ?it/s]/root/.pyenv/versions/3.9.14/lib/python3.9/site-packages/fairseq-0.12.2-py3.9-linux-x86_64.egg/fairseq/search.py:205: UserWarning: __floordiv__ is deprecated, and its behavior will change in a future version of pytorch. It currently rounds toward 0 (like the 'trunc' function NOT 'floor'). This results in incorrect rounding for negative values. To keep the current behavior, use torch.div(a, b, rounding_mode='trunc'), or for actual floor division, use torch.div(a, b, rounding_mode='floor').
-  beams_buf = indices_buf // vocab_size
- 20%|██        | 1/5 [00:18<01:14, 18.61s/it] 40%|████      | 2/5 [00:51<01:20, 26.74s/it] 60%|██████    | 3/5 [01:15<00:51, 25.75s/it] 80%|████████  | 4/5 [01:23<00:18, 18.67s/it]100%|██████████| 5/5 [01:53<00:00, 22.76s/it]100%|██████████| 5/5 [01:53<00:00, 22.69s/it]
