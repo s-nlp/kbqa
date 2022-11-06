@@ -32,7 +32,16 @@ def load_model_and_tokenizer_by_name(
     if model_name in ["facebook/bart-base", "facebook/bart-large"]:
         tokenizer = BartTokenizer.from_pretrained(model_name)
         model = BartForConditionalGeneration.from_pretrained(model_path)
-    elif model_name in ["t5-small", "t5-base", "t5-large"]:
+    elif model_name in [
+        "t5-small",
+        "t5-base",
+        "t5-large",
+        "google/t5-small-ssm-nq",
+        "google/t5-large-ssm",
+        "google/t5-large-ssm-nq",
+        "google/flan-t5-small",
+        "google/flan-t5-large",
+    ]:
         tokenizer = T5Tokenizer.from_pretrained(model_name)
         model = T5ForConditionalGeneration.from_pretrained(model_path)
     else:
@@ -86,12 +95,12 @@ def convert_to_features(example_batch: Dict, tokenizer: PreTrainedTokenizer) -> 
     """
     input_encodings = tokenizer.batch_encode_plus(
         example_batch["question"],
-        padding="max_length",
+        padding=True,
         truncation=True,
     )
     target_encodings = tokenizer.batch_encode_plus(
         example_batch["object"],
-        padding="max_length",
+        padding=True,
         truncation=True,
     )
 
