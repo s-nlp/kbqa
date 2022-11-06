@@ -9,6 +9,7 @@ import pandas as pd
 from torch.utils.data import DataLoader
 from wikidata.wikidata_redirects import WikidataRedirectsCache
 import evaluate
+from metrics.recall import recall
 
 
 def predict_answers(
@@ -66,21 +67,6 @@ def predict_answers(
     return generated_decoded
 
 
-def _get_accuracy_for_report(report: dict, results_df: pd.DataFrame, top_k: int = 0):
-    report[f"num_true_positive_top{top_k}"] = int(
-        results_df.apply(
-            lambda row: row["target"]
-            in [row[f"answer_{top_k}"] for k in range(top_k + 1)],
-            axis=1,
-        ).sum()
-    )
-    report["num_total"] = int(results_df.index.size)
-    report[f"accuracy_top{top_k}"] = float(
-        report[f"num_true_positive_top{top_k}"]
-    ) / float(report["num_total"])
-    return report
-
-
 def compute_metrics(eval_preds):
 
     preds, labels = eval_preds
@@ -117,6 +103,7 @@ def make_report(
     num_beam_groups: int = 50,
     diversity_penalty: int = 0.1,
     device: torch.device = torch.device("cuda"),
+    recall_redirects_on: bool = False,
 ) -> Tuple[pd.DataFrame, dict]:
     """make_report
 
@@ -145,8 +132,7 @@ def make_report(
         batch_size=batch_size,
         device=device,
     )
-    for key, vals in generated_answers.items():
-        results_df[key] = vals
+    results_df = pd.concat([results_df, pd.DataFrame(generated_answers)], axis=1)
 
     vocab = tokenizer.get_vocab()
     results_df["target_out_of_vocab"] = results_df["target"].apply(
@@ -156,7 +142,18 @@ def make_report(
     report["num_out_of_vocab"] = results_df[
         results_df["target_out_of_vocab"]
     ].index.size
-    for top_k in range(len(generated_answers.keys())):
-        report = _get_accuracy_for_report(report, results_df, top_k)
+
+    if recall_redirects_on is True:
+        wiki_redirects = WikidataRedirectsCache()
+    else:
+        wiki_redirects = None
+
+    for top_k in range(1, len(generated_answers.keys())):
+        top_k_answers_colums = [f"answer_{k}" for k in range(top_k)]
+        report[f"recall@{top_k}"] = recall(
+            results_df["target"].values.tolist(),
+            results_df[top_k_answers_colums].values.tolist(),
+            wiki_redirects,
+        )
 
     return results_df, report
