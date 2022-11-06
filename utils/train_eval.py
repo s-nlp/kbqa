@@ -12,10 +12,14 @@ def get_best_checkpoint_path(path_to_checkpoints: str) -> str:
     Returns:
         str: path to best checkpoint directory
     """
-    last_checkpint_path = sorted(
+    pathes = sorted(
         Path(path_to_checkpoints).glob("checkpoint-*"),
         key=lambda p: int(p.name.split("-")[-1]),
-    )[-1]
+    )
+    if len(pathes) == 0:
+        return None
+
+    last_checkpint_path = pathes[-1]
     with open(last_checkpint_path / "trainer_state.json", "r") as file_handler:
         train_state = json.load(file_handler)
     best_model_checkpint_path = train_state["best_model_checkpoint"]

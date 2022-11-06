@@ -30,6 +30,7 @@ parser.add_argument("--dataset_config_name", default="answerable_en")
 parser.add_argument("--dataset_evaluation_split", default="test")
 parser.add_argument("--dataset_cache_dir", default="../datasets/")
 parser.add_argument("--save_dir", default="../runs")
+parser.add_argument("--run_name", default=None)
 parser.add_argument(
     "--num_train_epochs",
     default=8,
@@ -57,13 +58,13 @@ parser.add_argument(
 )
 parser.add_argument(
     "--num_beams",
-    default=500,
+    default=200,
     help="Numbers of beams for Beam search (only for eval mode)",
     type=int,
 )
 parser.add_argument(
     "--num_return_sequences",
-    default=500,
+    default=200,
     help=(
         "Numbers of return sequencese from Beam search (only for eval mode)."
         " Must be less or equal to num_beams"
@@ -72,7 +73,7 @@ parser.add_argument(
 )
 parser.add_argument(
     "--num_beam_groups",
-    default=50,
+    default=20,
     help=(
         "Number of groups to divide num_beams into in order to ensure diversity "
         "among different groups of beams (only for eval mode). "
@@ -91,6 +92,12 @@ parser.add_argument(
     type=float,
 )
 parser.add_argument(
+    "--recall_redirects_on",
+    default=True,
+    type=lambda x: (str(x).lower() == "true"),
+    help="Using WikidataRedirects for calculation recall on evalutaion step, or not.",
+)
+parser.add_argument(
     "--trainer_mode",
     default="default",
     help=(
@@ -100,22 +107,30 @@ parser.add_argument(
 )
 parser.add_argument(
     "--apply_redirects_augmentation",
-    default=True,
+    default=False,
     help="Using Wikidata redirects for augmenting train dataset. Do not use with Seq2SeqWikidataRedirectsTrainer",
-    type=bool,
+    type=lambda x: (str(x).lower() == "true"),
 )
 
 
-def get_model_logging_dirs(save_dir, model_name):
+def get_model_logging_dirs(save_dir, model_name, run_name=None):
     normolized_model_name = hf_model_name_mormolize(model_name)
-    model_dir = Path(save_dir) / "models" / normolized_model_name
-    logging_dir = Path(save_dir) / "logs" / normolized_model_name
+
+    run_path = Path(save_dir)
+    if run_name is not None:
+        run_path = run_path / run_name
+    run_path = run_path / normolized_model_name
+
+    model_dir = run_path / "models"
+    logging_dir = run_path / "logs"
 
     return model_dir, logging_dir, normolized_model_name
 
 
 def train(args):
-    output_dir, logging_dir, _ = get_model_logging_dirs(args.save_dir, args.model_name)
+    model_dir, logging_dir, _ = get_model_logging_dirs(
+        args.save_dir, args.model_name, args.run_name
+    )
 
     model, tokenizer = load_model_and_tokenizer_by_name(args.model_name)
 
@@ -131,8 +146,8 @@ def train(args):
         model=model,
         tokenizer=tokenizer,
         train_dataset=dataset["train"],
-        valid_dataset=dataset["valid"],
-        output_dir=output_dir,
+        valid_dataset=dataset["validation"],
+        output_dir=model_dir,
         logging_dir=logging_dir,
         num_train_epochs=args.num_train_epochs,
         per_device_train_batch_size=args.per_device_train_batch_size,
@@ -143,13 +158,13 @@ def train(args):
 
 
 def evaluate(args):
-    output_dir, normolized_model_name, _ = get_model_logging_dirs(
-        args.save_dir, args.model_name
+    model_dir, _, normolized_model_name = get_model_logging_dirs(
+        args.save_dir, args.model_name, args.run_name
     )
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model, tokenizer = load_model_and_tokenizer_by_name(
-        args.model_name, get_best_checkpoint_path(output_dir)
+        args.model_name, get_best_checkpoint_path(model_dir)
     )
     model = model.to(device)
 
@@ -171,9 +186,14 @@ def evaluate(args):
         num_beam_groups=args.num_beam_groups,
         diversity_penalty=args.diversity_penalty,
         device=device,
+        recall_redirects_on=args.recall_redirects_on,
     )
 
-    eval_report_dir = Path(args.save_dir) / "evaluation" / normolized_model_name.name
+    eval_report_dir = Path(args.save_dir)
+    if args.run_name is not None:
+        eval_report_dir = eval_report_dir / args.run_name
+    eval_report_dir = eval_report_dir / normolized_model_name.name / "evaluation"
+
     number_of_versions = len(list(eval_report_dir.glob("version_*")))
     eval_report_dir = eval_report_dir / f"version_{number_of_versions}"
     eval_report_dir.mkdir(parents=True, exist_ok=True)
