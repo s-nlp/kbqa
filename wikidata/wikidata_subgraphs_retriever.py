@@ -144,10 +144,10 @@ class SubgraphsRetriever(WikidataBase):
 
                 # only fill in edges of current node with other paths' nodes
                 if len(other_paths_nodes) > 1:
-                    res = self.fill_edges_in_subgraph(
+                    graph_no_connection = self.fill_edges_in_subgraph(
                         other_paths_nodes, graph_no_connection
                     )
-        return res
+        return graph_no_connection
 
     def fill_edges_in_subgraph(self, vertices, graph=None):
         """

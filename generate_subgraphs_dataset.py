@@ -6,6 +6,7 @@ import json
 from tqdm import tqdm
 import shutil
 from pathlib import Path
+import networkx as nx
 
 from caches.ner_to_sentence_insertion import NerToSentenceInsertion
 from genre.fairseq_model import mGENRE  # pylint: disable=import-error,import-error
@@ -65,7 +66,7 @@ parser.add_argument(
 )
 parser.add_argument(
     "--dataset_extension_type",
-    default="pkl",
+    default="json",
     type=str,
     choices=["json", "pkl"],
 )
@@ -76,7 +77,7 @@ parser.add_argument(
 )
 parser.add_argument(
     "--num_rows",
-    default=2000,
+    default=500,
     type=int,
 )
 parser.add_argument("--save_dir", default="./subgraphs_dataset/dataset_v0/", type=str)
@@ -242,21 +243,20 @@ def get_and_save_subgraphs(
             idx += 1
 
 
-def subgraphs_to_pkl(subgraphs, file_path):
+def subgraphs_to_pkl(subgraph, file_path):
     """
     write our subgraph to pkl file at specified path
     """
     with open(file_path, "wb+") as f:
-        pickle.dump(subgraphs, f)
+        pickle.dump(subgraph, f)
 
 
-def subgraphs_to_json(subgraphs, file_path):
+def subgraphs_to_json(subgraph, file_path):
     """
     write our subgraph to json file at specified path
     """
-    for subgraph in subgraphs:
-        with open(file_path, "w+") as file_handler:
-            json.dump(nx.node_link_data(subgraph), file_handler)
+    with open(file_path, "w+") as file_handler:
+        json.dump(nx.node_link_data(subgraph), file_handler)
 
 
 if __name__ == "__main__":
