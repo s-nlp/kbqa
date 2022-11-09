@@ -19,16 +19,17 @@ def _is_correct_answer_present(
     target_labels: List[str],
     answer_candidates: List[str],
     wikidata_redirects_cache: Optional[WikidataRedirectsCache] = None,
+    label_preprocessor_fn: callable = lambda l: l,
 ) -> bool:
     if wikidata_redirects_cache is not None:
         target_redirects = _get_redirects(target_labels, wikidata_redirects_cache)
-        target_set = set(target_labels + target_redirects)
+        target_labels = target_labels + target_redirects
 
         answer_redirects = _get_redirects(answer_candidates, wikidata_redirects_cache)
-        answer_candidates_set = set(answer_candidates + answer_redirects)
-    else:
-        target_set = set(target_labels)
-        answer_candidates_set = set(answer_candidates)
+        answer_candidates = answer_candidates + answer_redirects
+
+    target_set = {label_preprocessor_fn(l) for l in target_labels}
+    answer_candidates_set = {label_preprocessor_fn(l) for l in answer_candidates}
 
     return len(answer_candidates_set.intersection(target_set)) > 0
 
@@ -37,18 +38,24 @@ def recall(
     targets: Union[List[str], List[List[str]]],
     answer_candidates: List[List[str]],
     wikidata_redirects_cache: Optional[WikidataRedirectsCache] = None,
+    label_preprocessor_fn: callable = lambda l: l,
 ) -> float:
     if len(targets) != len(answer_candidates):
         raise ValueError(
             "number of targets and number of answer candidate sets must be equal"
         )
     score = 0
-    for idx, target in enumerate(tqdm(targets, desc="recall")):
+    for idx in tqdm(range(len(targets)), desc="recall"):
+        target = targets[idx]
         if isinstance(target, str):
             target = [target]
         score += int(
             _is_correct_answer_present(
-                target, answer_candidates[idx], wikidata_redirects_cache
+                target,
+                answer_candidates[idx],
+                wikidata_redirects_cache,
+                label_preprocessor_fn,
             )
         )
+
     return score / len(targets)

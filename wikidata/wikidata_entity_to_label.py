@@ -22,6 +22,7 @@ class WikidataEntityToLabel(WikidataBase):
             label = self._request_wikidata(entity_idx)
             if label is not None:
                 self.cache[entity_idx] = label
+                self.save_cache()
 
         return self.cache.get(entity_idx)
 
