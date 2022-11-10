@@ -5,7 +5,6 @@ from typing import Optional, List
 import networkx as nx
 import enum
 import logging
-import matplotlib.pyplot as plt
 import requests
 from wikidata.base import WikidataBase
 from wikidata.wikidata_entity_to_label import WikidataEntityToLabel
@@ -216,52 +215,3 @@ class SubgraphsRetriever(WikidataBase):
 
         edges = [] if edges is None else edges
         return edges
-
-    def visualize_subgraph(self, graph):
-        """
-        plot the subgraph
-        """
-        plt.figure(figsize=(12, 10))
-        pos = nx.spring_layout(graph)
-        nx.draw(graph, pos)
-        labels = nx.get_edge_attributes(graph, "label")
-
-        # red for candidate, green for entities, pink for everything else
-        color_map = []
-        for node in graph:
-            if (
-                graph.nodes[node]["node_type"]
-                == SubgraphNodeType.ANSWER_CANDIDATE_ENTITY
-            ):
-                color_map.append("coral")
-            elif graph.nodes[node]["node_type"] == SubgraphNodeType.QUESTIONS_ENTITY:
-                color_map.append("deepskyblue")
-            else:
-                color_map.append("lightgray")
-
-        nx.draw(
-            graph,
-            pos,
-            edge_color="black",
-            arrowsize=10,
-            node_size=600,
-            node_color=color_map,
-            font_weight="bold",
-            font_size=14,
-            alpha=0.9,
-            labels={node: self.entity2label.get_label(node) for node in graph.nodes()},
-        )
-
-        nx.draw_networkx_edge_labels(
-            graph,
-            pos,
-            edge_labels={
-                edge: self.entity2label.get_label(weight)
-                for edge, weight in labels.items()
-            },
-            font_color="red",
-            font_weight="bold",
-        )
-        plt.axis("off")
-
-        return plt

@@ -17,9 +17,7 @@ requests
 bs4
 marisa_trie
 jupyterlab
-<<<<<<< HEAD
 sklearn
 tensorflow
-=======
 spacy
->>>>>>> master
+pygraphviz
