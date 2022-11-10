@@ -17,7 +17,7 @@ requests
 bs4
 marisa_trie
 jupyterlab
-spacy
-tensorflow
-keras
 sklearn
+tensorflow
+spacy
+pygraphviz
