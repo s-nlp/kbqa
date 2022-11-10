@@ -22,3 +22,4 @@ spacy
 mlflow
 gradio
 python-telegram-bot
+

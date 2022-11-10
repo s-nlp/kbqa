@@ -1,12 +1,13 @@
-# pylint: disable = import-error
+#pylint: disable = too-many-locals
+#pylint: disable = import-error
 
 """
 module for plotting subgraphs
 """
 import networkx as nx
 import matplotlib.pyplot as plt
-from ..wikidata.wikidata_entity_to_label import WikidataEntityToLabel
-from ..wikidata.wikidata_subgraphs_retriever import SubgraphNodeType
+from wikidata.wikidata_entity_to_label import WikidataEntityToLabel
+from wikidata.wikidata_subgraphs_retriever import SubgraphNodeType
 import graphviz
 
 
@@ -61,7 +62,9 @@ def graphviz_subgraph(node_labels, edge_ids, edge_labels, node_types):
     """
     function to plot colored graphviz graph
     """
-    entity2label = WikidataEntityToLabel()
+    entity2label = WikidataEntityToLabel(
+        sparql_endpoint="http://localhost:7200/repositories/wikidata"
+    )
 
     viz_subgraph = graphviz.Digraph(format="png")
 
@@ -77,6 +80,7 @@ def graphviz_subgraph(node_labels, edge_ids, edge_labels, node_types):
 
     for node, type_node in zip(node_labels_values, node_types):
 
+
         if type_node == SubgraphNodeType.ANSWER_CANDIDATE_ENTITY:
 
             viz_subgraph.node(f'"{node}"', color="coral", style="filled")
@@ -87,7 +91,10 @@ def graphviz_subgraph(node_labels, edge_ids, edge_labels, node_types):
 
     for edge_id, edge_label in zip(edge_ids_labels, edge_labels):
 
+
+
         source, target = edge_id
+
 
         viz_subgraph.edge(
             f'"{source}"',
