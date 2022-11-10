@@ -1,5 +1,5 @@
-#pylint: disable = too-many-locals
-#pylint: disable = import-error
+# pylint: disable = too-many-locals
+# pylint: disable = import-error
 
 """
 module for plotting subgraphs
@@ -80,7 +80,6 @@ def graphviz_subgraph(node_labels, edge_ids, edge_labels, node_types):
 
     for node, type_node in zip(node_labels_values, node_types):
 
-
         if type_node == SubgraphNodeType.ANSWER_CANDIDATE_ENTITY:
 
             viz_subgraph.node(f'"{node}"', color="coral", style="filled")
@@ -91,10 +90,7 @@ def graphviz_subgraph(node_labels, edge_ids, edge_labels, node_types):
 
     for edge_id, edge_label in zip(edge_ids_labels, edge_labels):
 
-
-
         source, target = edge_id
-
 
         viz_subgraph.edge(
             f'"{source}"',
