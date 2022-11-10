@@ -2,11 +2,12 @@ import numpy as np
 from matplotlib import pyplot as plt
 import tensorflow as tf
 import argparse
-from sklearn.metrics import accuracy_score
-from sklearn.metrics import precision_score, recall_score
-from sklearn.metrics import confusion_matrix
+from sklearn.metrics import precision_score, recall_score, accuracy_score, f1_score
+from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 from keras.preprocessing.image import ImageDataGenerator
 import warnings
+import os
+
 
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
@@ -27,6 +28,13 @@ parser.add_argument(
     "--directory",
     default="/workspace/kbqa/subgraph_plots/",
     type=str,
+)
+
+
+parser.add_argument(
+    "--test_samples",
+    default=50,
+    type=int,
 )
 
 
@@ -145,8 +153,30 @@ def metrics(valid_labels, valid_predictions):
     accuracy = accuracy_score(valid_labels, valid_predictions)
     precision = precision_score(valid_labels, valid_predictions)
     recall = recall_score(valid_labels, valid_predictions)
+    f1_s = f1_score(valid_labels, valid_predictions)
 
-    return conf_mat, accuracy, precision, recall
+    return conf_mat, accuracy, precision, recall, f1_s
+
+
+def class_weights(train_path):
+
+    """
+    functions to get weights for model training of unbalanced classes
+    """
+
+    _, _, correct_files = next(os.walk(train_path + "training/" + "correct"))
+    correct_count = len(correct_files)
+
+    _, _, wrong_files = next(os.walk(train_path + "training/" + "wrong"))
+    wrong_count = len(wrong_files)
+
+    correct_weight = (correct_count + wrong_count) / (
+        2 * correct_count
+    )  # division by 2 due to binary class
+    wrong_weight = (correct_count + wrong_count) / (2 * wrong_count)
+
+    # 0 is our correct label and 1 is incorrect
+    return {0: correct_weight, 1: wrong_weight}
 
 
 if __name__ == "__main__":
@@ -154,6 +184,8 @@ if __name__ == "__main__":
 
     BATCH_SIZE = args.batch_size
     IMAGE_SIZE = [256, 256]
+
+    weights = class_weights(args.directory)
 
     # creating 'data flow' for training data from data directory using ImageDataGenerator class
     # data augmentation for train dataset
@@ -205,6 +237,7 @@ if __name__ == "__main__":
         epochs=EPOCHS,
         validation_data=valid_data_flow,
         callbacks=[lr_callback, earlystoping_callback],
+        class_weight=weights,
     )
 
     # Display training curves for modified Xception model
@@ -224,23 +257,25 @@ if __name__ == "__main__":
     print("model accuracy: " + str(Xception_accuracy))
 
     # make predictions
-    test_data = data_generator(args.directory + "validation", BATCH_SIZE)
+    test_data = data_generator(args.directory + "validation", args.test_samples)
 
     images, valid_labels = next(test_data)
     valid_pred = model.predict(images)
 
     valid_predictions = np.around(valid_pred)
 
-    cm, accuracy, precision, recall = metrics(valid_labels, valid_predictions)
+    cm, _, _, _, f1 = metrics(valid_labels, valid_predictions)
 
     # print confusion matrix
     print(cm)
 
-    # print metrics
-    print("Accuracy score: " + str(accuracy))
-    print("Precision score: " + str(precision))
-    print("Recall score: " + str(recall))
-<<<<<<< HEAD
-=======
+    disp = ConfusionMatrixDisplay(confusion_matrix=cm)
+    disp.plot()
 
->>>>>>> master
+    plt.savefig("confusion_matrix.png", format="PNG")
+
+    # print metrics
+    # print("Accuracy score: " + str(accuracy))
+    # print("Precision score: " + str(precision))
+    # print("Recall score: " + str(recall))
+    print("F1 score: {}".format(round(f1, 2)))
