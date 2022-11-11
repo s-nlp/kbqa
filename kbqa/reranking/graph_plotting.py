@@ -1,4 +1,3 @@
-# pylint: disable = too-many-locals
 # pylint: disable = import-error
 
 """

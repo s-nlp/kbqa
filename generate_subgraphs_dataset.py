@@ -190,8 +190,6 @@ def prepare_questions_entities_candidates(
         new_question_obj.populate_candidates(candidates, label2entity, num_ans)
         questions_entities_candidates.append(new_question_obj)
 
-    # save meta info after processing
-    save_meta_info(questions_entities_candidates, file_path)
     return questions_entities_candidates
 
 
@@ -294,7 +292,6 @@ if __name__ == "__main__":
         label2entity,
         args.batch_size,
         args.num_bad_candidates,
-        args.save_dir,
     )
 
     Path(args.save_dir).mkdir(parents=True, exist_ok=True)

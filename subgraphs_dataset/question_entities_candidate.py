@@ -39,7 +39,7 @@ class QuestionEntitiesCandidates:
         for entity in dirty_entities:
             entity_id = entity["id"]
             entity_text = entity["texts"]
-            entity_score = entity["score"].detach().cpu().numpy()
+            entity_score = entity["score"]
             entity_text_lang = None
 
             # getting our entity in the wanted language
@@ -101,8 +101,6 @@ class QuestionEntitiesCandidates:
         """
         print out our current question, entity id, score, and candidate
         """
-        print()
         print("original question:", self.original_question)
         print("entities:", self.entity_ids)
         print("candidates:", self.candidate_ids)
-        print()

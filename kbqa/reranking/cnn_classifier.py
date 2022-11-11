@@ -37,13 +37,6 @@ parser.add_argument(
 )
 
 
-parser.add_argument(
-    "--test_samples",
-    default=50,
-    type=int,
-)
-
-
 def data_generator(directory, batch_size):
 
     """
@@ -280,8 +273,4 @@ if __name__ == "__main__":
 
     plt.savefig("confusion_matrix.png", format="PNG")
 
-    # print metrics
-    # print("Accuracy score: " + str(accuracy))
-    # print("Precision score: " + str(precision))
-    # print("Recall score: " + str(recall))
     print("F1 score: {}".format(round(f1, 2)))
