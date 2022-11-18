@@ -1,5 +1,8 @@
-import requests
 import time
+
+import requests
+
+from config import DEFAULT_CACHE_PATH
 from wikidata.base import WikidataBase
 
 
@@ -8,7 +11,7 @@ class WikidataEntityToLabel(WikidataBase):
 
     def __init__(
         self,
-        cache_dir_path: str = "./cache_store",
+        cache_dir_path: str = DEFAULT_CACHE_PATH,
         sparql_endpoint: str = None,
     ) -> None:
         super().__init__(

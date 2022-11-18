@@ -1,7 +1,7 @@
 from caches.base import CacheBase
 import os
 from urllib.parse import urlparse
-from config import SPARQL_ENDPOINT
+from config import SPARQL_ENDPOINT, DEFAULT_CACHE_PATH
 
 
 class WikidataBase(CacheBase):
@@ -12,7 +12,7 @@ class WikidataBase(CacheBase):
 
     def __init__(
         self,
-        cache_dir_path: str = "./cache_store",
+        cache_dir_path: str = DEFAULT_CACHE_PATH,
         cache_filename: str = "cache.pkl",
         sparql_endpoint: str = None,
     ) -> None:
