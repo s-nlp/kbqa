@@ -1,7 +1,9 @@
 """Module for NER insertion to the sentence"""
 
 import spacy
+
 from caches.base import CacheBase
+from config import DEFAULT_CACHE_PATH
 
 
 class NerToSentenceInsertion(CacheBase):
@@ -9,7 +11,7 @@ class NerToSentenceInsertion(CacheBase):
 
     def __init__(
         self,
-        cache_dir_path: str = "./cache_store",
+        cache_dir_path: str = DEFAULT_CACHE_PATH,
         model_path: str = ".spacy-finetuned/output/model-best",
     ) -> None:
 

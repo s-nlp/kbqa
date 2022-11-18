@@ -3,13 +3,16 @@
 # pylint: disable=missing-module-docstring
 # pylint: disable=too-many-arguments
 
-import numpy as np
 from typing import Optional
+
+import numpy as np
+
 from caches.base import CacheBase
-from wikidata.wikidata_subgraphs_retriever import SubgraphsRetriever
+from config import DEFAULT_CACHE_PATH
+from metrics import recall
 from wikidata.wikidata_label_to_entity import WikidataLabelToEntity
 from wikidata.wikidata_redirects import WikidataRedirectsCache
-from metrics import recall
+from wikidata.wikidata_subgraphs_retriever import SubgraphsRetriever
 
 
 class ExtraCandidateGenerator(CacheBase):
@@ -21,7 +24,7 @@ class ExtraCandidateGenerator(CacheBase):
         candidates_list: list,
         label2entity: WikidataLabelToEntity,
         subgraph_retriever: SubgraphsRetriever,
-        cache_dir_path: str = "./cache_store",
+        cache_dir_path: str = DEFAULT_CACHE_PATH,
     ) -> None:
 
         super().__init__(cache_dir_path, "wikidata_entity_1_hope_neighbors.pkl")

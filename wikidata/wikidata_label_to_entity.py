@@ -1,8 +1,11 @@
 # pylint: disable=logging-format-interpolation
 
-import time
-import requests
 import logging
+import time
+
+import requests
+
+from config import DEFAULT_CACHE_PATH
 from wikidata.base import WikidataBase
 from wikidata.wikidata_redirects import WikidataRedirectsCache
 
@@ -13,7 +16,7 @@ class WikidataLabelToEntity(WikidataBase):
     def __init__(
         self,
         redirect_cache: WikidataRedirectsCache,
-        cache_dir_path: str = "./cache_store",
+        cache_dir_path: str = DEFAULT_CACHE_PATH,
         sparql_endpoint: str = None,
     ) -> None:
         super().__init__(cache_dir_path, "wikidata_entity_to_id.pkl", sparql_endpoint)

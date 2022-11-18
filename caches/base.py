@@ -2,13 +2,15 @@ import os
 import pickle
 from abc import ABC
 
+from config import DEFAULT_CACHE_PATH
+
 
 class CacheBase(ABC):
     """CacheBase - Abstract base class for storing something in cache file"""
 
     def __init__(
         self,
-        cache_dir_path: str = "./cache_store",
+        cache_dir_path: str = DEFAULT_CACHE_PATH,
         cache_filename: str = "cache.pkl",
     ) -> None:
         self.cache_dir_path = cache_dir_path

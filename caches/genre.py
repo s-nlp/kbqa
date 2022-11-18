@@ -1,5 +1,7 @@
-from caches.base import CacheBase
 import torch
+
+from caches.base import CacheBase
+from config import DEFAULT_CACHE_PATH
 
 
 class GENREWikidataEntityesCache(CacheBase):
@@ -12,7 +14,7 @@ class GENREWikidataEntityesCache(CacheBase):
         mgenre_model,
         trie,
         lang_title_to_wikidata_id,
-        cache_dir_path: str = "./cache_store",
+        cache_dir_path: str = DEFAULT_CACHE_PATH,
     ) -> None:
         super().__init__(cache_dir_path, "genre_wikidata_entities_vocab.pkl")
         self.mgenre_model = mgenre_model

@@ -1,5 +1,8 @@
-from SPARQLWrapper import SPARQLWrapper, JSON
 from typing import List
+
+from SPARQLWrapper import JSON, SPARQLWrapper
+
+from config import DEFAULT_CACHE_PATH
 from wikidata.base import WikidataBase
 
 
@@ -10,7 +13,7 @@ class WikidataRedirectsCache(WikidataBase):
 
     def __init__(
         self,
-        cache_dir_path: str = "./cache_store",
+        cache_dir_path: str = DEFAULT_CACHE_PATH,
         sparql_endpoint: str = "http://dbpedia.org/sparql",
     ) -> None:
         super().__init__(cache_dir_path, "wikidata_redirects.pkl", sparql_endpoint)

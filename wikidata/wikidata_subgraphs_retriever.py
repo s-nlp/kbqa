@@ -1,12 +1,15 @@
 # pylint: disable=no-else-continue
 
-import time
-from typing import Optional, List
-import networkx as nx
 import enum
 import logging
+import time
+from typing import List, Optional
+
 import matplotlib.pyplot as plt
+import networkx as nx
 import requests
+
+from config import DEFAULT_CACHE_PATH
 from wikidata.base import WikidataBase
 from wikidata.wikidata_entity_to_label import WikidataEntityToLabel
 from wikidata.wikidata_shortest_path import WikidataShortestPathCache
@@ -31,7 +34,7 @@ class SubgraphsRetriever(WikidataBase):
         num_request_time: int = 3,
         lang: str = "en",
         sparql_endpoint: str = None,
-        cache_dir_path: str = "./cache_store",
+        cache_dir_path: str = DEFAULT_CACHE_PATH,
     ) -> None:
         super().__init__(
             cache_dir_path, "wikidata_shortest_paths_edges.pkl", sparql_endpoint

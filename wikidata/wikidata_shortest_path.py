@@ -1,13 +1,15 @@
 # pylint: disable=no-else-raise,unnecessary-lambda,raise-missing-from
 
-from typing import List
-from wikidata.base import WikidataBase
-import requests
-import time
-from config import SPARQL_ENGINE
 import base64
 import logging
+import time
 from itertools import groupby
+from typing import List
+
+import requests
+
+from config import DEFAULT_CACHE_PATH, SPARQL_ENGINE
+from wikidata.base import WikidataBase
 
 
 class WikidataShortestPathCache(WikidataBase):
@@ -28,7 +30,7 @@ class WikidataShortestPathCache(WikidataBase):
 
     def __init__(
         self,
-        cache_dir_path: str = "./cache_store",
+        cache_dir_path: str = DEFAULT_CACHE_PATH,
         sparql_endpoint: str = None,
         engine: str = None,
     ) -> None:

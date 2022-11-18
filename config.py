@@ -1,3 +1,5 @@
+from pathlib import Path
+
 SEQ2SEQ_AVAILABLE_HF_PRETRAINED_MODEL_NAMES = [
     "facebook/bart-base",
     "facebook/bart-large",
@@ -13,3 +15,5 @@ SEQ2SEQ_AVAILABLE_HF_PRETRAINED_MODEL_NAMES = [
 
 SPARQL_ENDPOINT = "http://localhost:7200/repositories/wikidata"
 SPARQL_ENGINE = "graphdb"
+
+DEFAULT_CACHE_PATH = str(Path(__file__).parent / "cache_store")
