@@ -18,8 +18,8 @@ def entities_to_labels(
     if isinstance(entities, str):
         entities = [entities]
 
-    for idx in range(len(entities)):
-        if re.fullmatch(r"Q[0-9]+", entities[idx]) is not None:
-            entities[idx] = entity2label.get_label(entities[idx])
+    for idx, entity in enumerate(entities):
+        if re.fullmatch(r"Q[0-9]+", entity) is not None:
+            entities[idx] = entity2label.get_label(entity)
 
     return entities
