@@ -1,11 +1,20 @@
-from transformers import BartTokenizer, BartForConditionalGeneration
-from transformers import T5Tokenizer, T5ForConditionalGeneration
-from transformers import PreTrainedTokenizer, PreTrainedModel
-import datasets
-from typing import Dict, Tuple
+import logging
 from pathlib import Path
+from typing import Dict, Tuple
+
+import datasets
+from transformers import (
+    BartForConditionalGeneration,
+    BartTokenizer,
+    PreTrainedModel,
+    PreTrainedTokenizer,
+    T5ForConditionalGeneration,
+    T5Tokenizer,
+)
+
 from config import SEQ2SEQ_AVAILABLE_HF_PRETRAINED_MODEL_NAMES
-from wikidata.wikidata_redirects import WikidataRedirectsCache
+from utils import entities_to_labels
+from wikidata import WikidataRedirectsCache, WikidataEntityToLabel
 
 
 def load_model_and_tokenizer_by_name(
@@ -25,8 +34,10 @@ def load_model_and_tokenizer_by_name(
     """
 
     if from_pretrained_path is not None:
+        logging.info(f"Load local checkpoint model from {from_pretrained_path}")
         model_path = Path(from_pretrained_path)
     else:
+        logging.info(f"No checkpint, load public pretrained model {model_name}")
         model_path = model_name
 
     if model_name in ["facebook/bart-base", "facebook/bart-large"]:
@@ -99,7 +110,7 @@ def convert_to_features(example_batch: Dict, tokenizer: PreTrainedTokenizer) -> 
         truncation=True,
     )
     target_encodings = tokenizer.batch_encode_plus(
-        example_batch["object"],
+        [obj[0] for obj in example_batch["object"]],
         padding=True,
         truncation=True,
     )
@@ -115,6 +126,20 @@ def convert_to_features(example_batch: Dict, tokenizer: PreTrainedTokenizer) -> 
     return encodings
 
 
+def _preprocessing_kbqa_dataset(example, entity2label: WikidataEntityToLabel):
+    example["object"] = entities_to_labels(example["object"], entity2label)
+    return example
+
+
+def _filter_objects(example):
+    if isinstance(example["object"], str):
+        return True
+    elif isinstance(example["object"], list):
+        return all(isinstance(obj, str) for obj in example["object"])
+    else:
+        return False
+
+
 def load_kbqa_seq2seq_dataset(
     dataset_name: str,
     dataset_config_name: str,
@@ -122,6 +147,8 @@ def load_kbqa_seq2seq_dataset(
     dataset_cache_dir: str = None,
     split: str = None,
     apply_redirects_augmentation: bool = False,
+    entity2label: WikidataEntityToLabel = WikidataEntityToLabel(),
+    use_convert_to_features: bool = True,
 ) -> datasets.arrow_dataset.Dataset:
     """load_kbqa_seq2seq_dataset - helper for load dataset for seq2seq KBQA
 
@@ -135,6 +162,10 @@ def load_kbqa_seq2seq_dataset(
             Defaults to None
         apply_redirects_augmentation (bool, optional): Using wikidata redirect for augmention,
             Defaults to False
+        entity2label (WikidataEntityToLabel, optional): Used for converting entities to label if provided IDs
+            Defaults to WikidataEntityToLabel()
+        use_convert_to_features (bool, optional): Converting dataset to features for seq2seq traning/evalutaion pipeline
+            Defaults to True
 
     Returns:
         datasets.arrow_dataset.Dataset: Prepared dataset for seq2seq
@@ -147,23 +178,29 @@ def load_kbqa_seq2seq_dataset(
         ignore_verifications=True,
         split=split,
     )
-    dataset = dataset.filter(lambda example: isinstance(example["object"], str))
+    dataset = dataset.map(
+        lambda example: _preprocessing_kbqa_dataset(example, entity2label)
+    )
+    dataset = dataset.filter(_filter_objects)
     if apply_redirects_augmentation:
         wikidata_redirects = WikidataRedirectsCache()
         dataset["train"] = dataset["train"].map(
             lambda batch: augmentation_by_redirects(batch, wikidata_redirects),
             batched=True,
         )
-    dataset = dataset.map(
-        lambda batch: convert_to_features(batch, tokenizer),
-        batched=True,
-    )
-    columns = [
-        "input_ids",
-        "labels",
-        "attention_mask",
-    ]
-    dataset.set_format(type="torch", columns=columns)
+
+    if use_convert_to_features is True:
+        dataset = dataset.map(
+            lambda batch: convert_to_features(batch, tokenizer),
+            batched=True,
+        )
+        columns = [
+            "input_ids",
+            "labels",
+            "attention_mask",
+        ]
+        dataset.set_format(type="torch", columns=columns)
+
     return dataset
 
 
