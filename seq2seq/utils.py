@@ -1,4 +1,7 @@
+import json
 import logging
+import pandas as pd
+from argparse import Namespace
 from pathlib import Path
 from typing import Dict, Tuple
 
@@ -14,7 +17,7 @@ from transformers import (
 
 from config import SEQ2SEQ_AVAILABLE_HF_PRETRAINED_MODEL_NAMES
 from utils import entities_to_labels
-from wikidata import WikidataRedirectsCache, WikidataEntityToLabel
+from wikidata import WikidataEntityToLabel, WikidataRedirectsCache
 
 
 def load_model_and_tokenizer_by_name(
@@ -94,23 +97,33 @@ def augmentation_by_redirects(
     return outputs
 
 
-def convert_to_features(example_batch: Dict, tokenizer: PreTrainedTokenizer) -> Dict:
+def convert_to_features(
+    example_batch: Dict,
+    tokenizer: PreTrainedTokenizer,
+    question_feature_name: str = "question",
+    label_feature_name: str = "object",
+) -> Dict:
     """convert_to_features function for HF dataset for applying tokenizer
 
     Args:
         example_batch (Dict): HF Dataset batch
         tokenizer (PreTrainedTokenizer): HF Tokenizer
+        question_feature_name (str): Name of column with quesions
+        label_feature_name (str): Name of column with labels
 
     Returns:
         Dict: HF Dataset tokenized batch
     """
     input_encodings = tokenizer.batch_encode_plus(
-        example_batch["question"],
+        example_batch[question_feature_name],
         padding=True,
         truncation=True,
     )
     target_encodings = tokenizer.batch_encode_plus(
-        [obj[0] for obj in example_batch["object"]],
+        [
+            obj[0] if isinstance(obj, list) else obj
+            for obj in example_batch[label_feature_name]
+        ],
         padding=True,
         truncation=True,
     )
@@ -204,6 +217,37 @@ def load_kbqa_seq2seq_dataset(
     return dataset
 
 
+def load_mintaka_seq2seq_dataset(
+    dataset_name: str,
+    dataset_config_name: str,
+    tokenizer: PreTrainedTokenizer,
+    split: str = None,
+    use_convert_to_features: bool = True,
+):
+    dataset = datasets.load_dataset(
+        dataset_name,
+        dataset_config_name,
+        ignore_verifications=True,
+        split=split,
+    )
+
+    if use_convert_to_features is True:
+        dataset = dataset.map(
+            lambda batch: convert_to_features(
+                batch, tokenizer, label_feature_name="answerText"
+            ),
+            batched=True,
+        )
+        columns = [
+            "input_ids",
+            "labels",
+            "attention_mask",
+        ]
+        dataset.set_format(type="torch", columns=columns)
+
+    return dataset
+
+
 def hf_model_name_mormolize(model_name: str) -> str:
     """hf_model_name_mormolize - return normolized model name for storing to directory
     Example: facebook/bart-large -> facebook_bart-large
@@ -215,3 +259,46 @@ def hf_model_name_mormolize(model_name: str) -> str:
         str: normolized model_name
     """
     return model_name.replace("/", "_")
+
+
+def get_model_logging_dirs(save_dir, model_name, run_name=None):
+    normolized_model_name = hf_model_name_mormolize(model_name)
+
+    run_path = Path(save_dir)
+    if run_name is not None:
+        run_path = run_path / run_name
+    run_path = run_path / normolized_model_name
+
+    model_dir = run_path / "models"
+    logging_dir = run_path / "logs"
+
+    return model_dir, logging_dir, normolized_model_name
+
+
+def dump_eval(
+    results_df: pd.DataFrame, report: dict, args: Namespace, normolized_model_name: str
+):
+    eval_report_dir = Path(args.save_dir)
+    if args.run_name is not None:
+        eval_report_dir = eval_report_dir / args.run_name
+    eval_report_dir = (
+        eval_report_dir
+        / (
+            normolized_model_name.name
+            if isinstance(normolized_model_name, Path)
+            else str(normolized_model_name)
+        )
+        / "evaluation"
+    )
+
+    number_of_versions = len(list(eval_report_dir.glob("version_*")))
+    eval_report_dir = eval_report_dir / f"version_{number_of_versions}"
+    eval_report_dir.mkdir(parents=True, exist_ok=True)
+
+    results_df.to_csv(eval_report_dir / "results.csv", index=False)
+    with open(eval_report_dir / "report.json", "w", encoding=None) as file_handler:
+        json.dump(report, file_handler)
+    with open(eval_report_dir / "args.json", "w", encoding=None) as file_handler:
+        json.dump(vars(args), file_handler)
+
+    return eval_report_dir

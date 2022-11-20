@@ -39,14 +39,19 @@ def recall(
     answer_candidates: List[List[str]],
     wikidata_redirects_cache: Optional[WikidataRedirectsCache] = None,
     label_preprocessor_fn: callable = lambda l: l,
+    verbose: bool = False,
 ) -> float:
     if len(targets) != len(answer_candidates):
         raise ValueError(
             "number of targets and number of answer candidate sets must be equal"
         )
+    if verbose:
+        iterate_targets = tqdm(enumerate(targets), total=len(targets), desc="recall")
+    else:
+        iterate_targets = enumerate(targets)
+
     score = 0
-    for idx in tqdm(range(len(targets)), desc="recall"):
-        target = targets[idx]
+    for idx, target in iterate_targets:
         if isinstance(target, str):
             target = [target]
         score += int(

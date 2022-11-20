@@ -1,16 +1,19 @@
 import argparse
-import json
 import torch
-from pathlib import Path
 from config import SEQ2SEQ_AVAILABLE_HF_PRETRAINED_MODEL_NAMES
 from utils.train_eval import get_best_checkpoint_path
 from seq2seq.train import train as train_seq2seq
 from seq2seq.eval import make_report
 from seq2seq.utils import (
-    hf_model_name_mormolize,
     load_kbqa_seq2seq_dataset,
+    load_mintaka_seq2seq_dataset,
     load_model_and_tokenizer_by_name,
+    get_model_logging_dirs,
+    dump_eval,
 )
+import logging
+
+logging.getLogger().setLevel(logging.INFO)
 
 
 parser = argparse.ArgumentParser()
@@ -93,7 +96,7 @@ parser.add_argument(
 )
 parser.add_argument(
     "--recall_redirects_on",
-    default=True,
+    default=False,
     type=lambda x: (str(x).lower() == "true"),
     help="Using WikidataRedirects for calculation recall on evalutaion step, or not.",
 )
@@ -113,20 +116,6 @@ parser.add_argument(
 )
 
 
-def get_model_logging_dirs(save_dir, model_name, run_name=None):
-    normolized_model_name = hf_model_name_mormolize(model_name)
-
-    run_path = Path(save_dir)
-    if run_name is not None:
-        run_path = run_path / run_name
-    run_path = run_path / normolized_model_name
-
-    model_dir = run_path / "models"
-    logging_dir = run_path / "logs"
-
-    return model_dir, logging_dir, normolized_model_name
-
-
 def train(args):
     model_dir, logging_dir, _ = get_model_logging_dirs(
         args.save_dir, args.model_name, args.run_name
@@ -134,13 +123,20 @@ def train(args):
 
     model, tokenizer = load_model_and_tokenizer_by_name(args.model_name)
 
-    dataset = load_kbqa_seq2seq_dataset(
-        args.dataset_name,
-        args.dataset_config_name,
-        tokenizer,
-        args.dataset_cache_dir,
-        apply_redirects_augmentation=args.apply_redirects_augmentation,
-    )
+    if args.dataset_name == "AmazonScience/mintaka":
+        dataset = load_mintaka_seq2seq_dataset(
+            args.dataset_name,
+            args.dataset_config_name,
+            tokenizer,
+        )
+    else:
+        dataset = load_kbqa_seq2seq_dataset(
+            args.dataset_name,
+            args.dataset_config_name,
+            tokenizer,
+            args.dataset_cache_dir,
+            apply_redirects_augmentation=args.apply_redirects_augmentation,
+        )
 
     train_seq2seq(
         model=model,
@@ -151,6 +147,7 @@ def train(args):
         logging_dir=logging_dir,
         num_train_epochs=args.num_train_epochs,
         per_device_train_batch_size=args.per_device_train_batch_size,
+        gradient_accumulation_steps=args.gradient_accumulation_steps,
         eval_steps=args.eval_steps,
         logging_steps=args.logging_steps,
         trainer_mode=args.trainer_mode,
@@ -168,13 +165,24 @@ def evaluate(args):
     )
     model = model.to(device)
 
-    dataset = load_kbqa_seq2seq_dataset(
-        args.dataset_name,
-        args.dataset_config_name,
-        tokenizer,
-        args.dataset_cache_dir,
-        args.dataset_evaluation_split,
-    )
+    if args.dataset_name == "AmazonScience/mintaka":
+        dataset = load_mintaka_seq2seq_dataset(
+            args.dataset_name,
+            args.dataset_config_name,
+            tokenizer,
+            split=args.dataset_evaluation_split,
+        )
+        label_feature_name = "answerText"
+    else:
+        dataset = load_kbqa_seq2seq_dataset(
+            args.dataset_name,
+            args.dataset_config_name,
+            tokenizer,
+            args.dataset_cache_dir,
+            args.dataset_evaluation_split,
+            apply_redirects_augmentation=args.apply_redirects_augmentation,
+        )
+        label_feature_name = "object"
 
     results_df, report = make_report(
         model=model,
@@ -187,31 +195,10 @@ def evaluate(args):
         diversity_penalty=args.diversity_penalty,
         device=device,
         recall_redirects_on=args.recall_redirects_on,
+        label_feature_name=label_feature_name,
     )
 
-    eval_report_dir = Path(args.save_dir)
-    if args.run_name is not None:
-        eval_report_dir = eval_report_dir / args.run_name
-    eval_report_dir = (
-        eval_report_dir
-        / (
-            normolized_model_name.name
-            if isinstance(normolized_model_name, Path)
-            else str(normolized_model_name)
-        )
-        / "evaluation"
-    )
-
-    number_of_versions = len(list(eval_report_dir.glob("version_*")))
-    eval_report_dir = eval_report_dir / f"version_{number_of_versions}"
-    eval_report_dir.mkdir(parents=True, exist_ok=True)
-
-    results_df.to_csv(eval_report_dir / "results.csv", index=False)
-    with open(eval_report_dir / "report.json", "w", encoding=None) as file_handler:
-        json.dump(report, file_handler)
-    with open(eval_report_dir / "args.json", "w", encoding=None) as file_handler:
-        json.dump(vars(args), file_handler)
-
+    eval_report_dir = dump_eval(results_df, report, args, normolized_model_name)
     print(report)
     print(f"Report dumped to {eval_report_dir}")
 
