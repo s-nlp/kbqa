@@ -1,8 +1,13 @@
 # pylint: disable=consider-using-dict-items
 # pylint: disable=too-many-branches
+# pylint: disable=inconsistent-return-statements
 
-import networkx as nx
+"""
+Module to extract features from subgraphs
+"""
+
 from math import sqrt
+import networkx as nx
 
 
 def number_of_triangles(subgraph_obj, is_directed):
@@ -36,8 +41,8 @@ def number_of_triangles(subgraph_obj, is_directed):
     # else division by 6 is done
     if is_directed:
         return count_triangle // 3
-    else:
-        return count_triangle // 6
+
+    return count_triangle // 6
 
 
 def nodes_and_edges(subgraph_obj):
@@ -170,50 +175,54 @@ def eigenvector_centrality(
     @rtype:   dict
     """
 
-    if (
-        isinstance(graph, nx.MultiGraph) is True
-        or isinstance(graph, nx.MultiDiGraph) is True
-    ):
-        raise nx.NetworkXException("Not defined for multigraphs.")
+    try:
 
-    if len(graph) == 0:
-        raise nx.NetworkXException("Empty graph.")
+        if (
+            isinstance(graph, nx.MultiGraph) is True
+            or isinstance(graph, nx.MultiDiGraph) is True
+        ):
+            raise nx.NetworkXException("Not defined for multigraphs.")
 
-    if nstart is None:
+        if len(graph) == 0:
+            raise nx.NetworkXException("Empty graph.")
 
-        x_nodes = dict(((n, 1.0 / len(graph)) for n in graph))
-    else:
-        x_nodes = nstart
+        if nstart is None:
 
-    s_rec = 1.0 / sum(x_nodes.values())
-    for k in x_nodes:
-        x_nodes[k] *= s_rec
-    nnodes = graph.number_of_nodes()
+            x_nodes = dict(((n, 1.0 / len(graph)) for n in graph))
+        else:
+            x_nodes = nstart
 
-    for i in range(max_iter):
-        xlast = x_nodes
-        x_nodes = dict.fromkeys(xlast, 0)
+        s_rec = 1.0 / sum(x_nodes.values())
+        for k in x_nodes:
+            x_nodes[k] *= s_rec
+        nnodes = graph.number_of_nodes()
 
-        for j in x_nodes:
-            for nbr in graph[j]:
-                x_nodes[nbr] += xlast[j] * graph[j][nbr].get(weight, 1)
+        for i in range(max_iter):
+            xlast = x_nodes
+            x_nodes = dict.fromkeys(xlast, 0)
 
-        try:
-            s_rec = 1.0 / sqrt(sum(v**2 for v in x_nodes.values()))
+            for j in x_nodes:
+                for nbr in graph[j]:
+                    x_nodes[nbr] += xlast[j] * graph[j][nbr].get(weight, 1)
 
-        except ZeroDivisionError:
-            s_rec = 1.0
-        for i in x_nodes:
-            x_nodes[i] *= s_rec
+            try:
+                s_rec = 1.0 / sqrt(sum(v**2 for v in x_nodes.values()))
 
-        err = sum(abs(x_nodes[n] - xlast[n]) for n in x_nodes)
-        if err < nnodes * tol:
-            return x_nodes
+            except ZeroDivisionError:
+                s_rec = 1.0
+            for i in x_nodes:
+                x_nodes[i] *= s_rec
 
-    raise nx.NetworkXError(
-        """eigenvector_centrality():
-power iteration failed to converge in %d iterations."%(i+1))"""
-    )
+            err = sum(abs(x_nodes[n] - xlast[n]) for n in x_nodes)
+            if err < nnodes * tol:
+                return x_nodes
+
+        raise nx.NetworkXError(
+            """eigenvector_centrality():
+    power iteration failed to converge in %d iterations."%(i+1))"""
+        )
+    except nx.exception.NetworkXError:
+        return {"exeption": float("NaN")}
 
 
 def large_clique_size(graph):
