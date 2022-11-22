@@ -1,5 +1,14 @@
-from SPARQLWrapper import SPARQLWrapper, JSON
+# pylint: disable=logging-format-interpolation
+# pylint: disable=missing-module-docstring
+# pylint: disable=missing-class-docstring
+# pylint: disable=missing-function-docstring
+# pylint: disable=W0703
+# pylint: disable=R1705
+# pylint: disable=R0911
 from typing import List
+
+from SPARQLWrapper import SPARQLWrapper, JSON
+
 from wikidata.base import WikidataBase
 
 
@@ -17,12 +26,13 @@ class WikidataRedirectsCache(WikidataBase):
         self.cache = {}
 
     def get_redirects(self, term: str) -> List[str]:
-        nterm = self._term_preprocess(term)
+
+        nterm = self._term_preprocess(str(term))
 
         if nterm not in self.cache:
             redirects = self._request_dbpedia(nterm)
             if "Problem communicating with the server" in redirects[0]:
-                return redirects
+                return redirects[1]
             else:
                 self.cache[nterm] = redirects
                 self.save_cache()
@@ -31,7 +41,7 @@ class WikidataRedirectsCache(WikidataBase):
 
     def _term_preprocess(self, term: str) -> str:
         term = term.strip()
-        return term.capitalize().replace(" ", "_")
+        return term.capitalize().replace(" ", "_").replace(".", "")
 
     def _request_dbpedia(self, nterm: str) -> List[str]:
         query = """
