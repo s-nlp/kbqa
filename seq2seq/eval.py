@@ -10,9 +10,10 @@ from torch.utils.data import DataLoader
 from wikidata.wikidata_redirects import WikidataRedirectsCache
 import evaluate
 from metrics.recall import recall
+from utils import get_default_logger
 
 
-logger = logging.get_logger(__name__)
+logger = get_default_logger()
 
 
 def predict_answers(
@@ -144,7 +145,7 @@ def make_report(
     )
     logger.info("Eval: candidate answers generated")
     results_df = pd.concat([results_df, pd.DataFrame(generated_answers)], axis=1)
-    
+
     logger.info("Eval: target out of vocab calculation")
     vocab = tokenizer.get_vocab()
     results_df["target_out_of_vocab"] = results_df["target"].apply(
@@ -162,9 +163,11 @@ def make_report(
         logger.info("Eval: recall_redirects_on False.")
         wiki_redirects = None
 
-    for top_k in logging.tqdm(range(1, len(generated_answers.keys())), desc="Eval: topN recall calculation"):
+    for top_k in logging.tqdm(
+        range(1, len(generated_answers.keys())), desc="Eval: topN recall calculation"
+    ):
         top_k_answers_colums = [f"answer_{k}" for k in range(top_k)]
-        report[f"recall@{top_k}"] = recall(
+        report[f"recall_top{top_k}"] = recall(
             results_df["target"].values.tolist(),
             results_df[top_k_answers_colums].values.tolist(),
             wiki_redirects,

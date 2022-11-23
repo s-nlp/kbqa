@@ -1,26 +1,29 @@
 import argparse
+import json
+import os
+import mlflow
 import torch
+from pathlib import Path
 from config import SEQ2SEQ_AVAILABLE_HF_PRETRAINED_MODEL_NAMES
-from utils.train_eval import get_best_checkpoint_path
-from seq2seq.train import train as train_seq2seq
 from seq2seq.eval import make_report
+from seq2seq.train import train as train_seq2seq
 from seq2seq.utils import (
+    dump_eval,
+    get_model_logging_dirs,
     load_kbqa_seq2seq_dataset,
     load_mintaka_seq2seq_dataset,
     load_model_and_tokenizer_by_name,
-    get_model_logging_dirs,
-    dump_eval,
 )
-import logging
+from utils.train_eval import get_best_checkpoint_path
+from utils import get_default_logger
 
-logging.getLogger().setLevel(logging.INFO)
-
+logger = get_default_logger()
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
     "--mode",
     default="train",
-    choices=["train", "eval"],
+    choices=["train", "eval", "train_eval"],
     help="Choose mode for working, train or evaluate/analyze fited model",
 )
 parser.add_argument(
@@ -34,6 +37,19 @@ parser.add_argument("--dataset_evaluation_split", default="test")
 parser.add_argument("--dataset_cache_dir", default="../datasets/")
 parser.add_argument("--save_dir", default="../runs")
 parser.add_argument("--run_name", default=None)
+parser.add_argument(
+    "--mlflow_experiment_name",
+    default=None,
+    help="Will be used this experiment name if provided",
+)
+parser.add_argument(
+    "--mlflow_run_name", default=None, help="Will be used this run name if provided"
+)
+parser.add_argument(
+    "--mlflow_tracking_uri",
+    default="file:///workspace/mlruns",
+    help="URI for mlflow tracking",
+)
 parser.add_argument(
     "--num_train_epochs",
     default=8,
@@ -116,11 +132,7 @@ parser.add_argument(
 )
 
 
-def train(args):
-    model_dir, logging_dir, _ = get_model_logging_dirs(
-        args.save_dir, args.model_name, args.run_name
-    )
-
+def train(args, model_dir, logging_dir):
     model, tokenizer = load_model_and_tokenizer_by_name(args.model_name)
 
     if args.dataset_name == "AmazonScience/mintaka":
@@ -152,13 +164,13 @@ def train(args):
         logging_steps=args.logging_steps,
         trainer_mode=args.trainer_mode,
     )
+    model.to("cpu")
+
+    with open(logging_dir / "args.json", "w", encoding=None) as file_handler:
+        json.dump(vars(args), file_handler)
 
 
-def evaluate(args):
-    model_dir, _, normolized_model_name = get_model_logging_dirs(
-        args.save_dir, args.model_name, args.run_name
-    )
-
+def evaluate(args, model_dir, normolized_model_name):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model, tokenizer = load_model_and_tokenizer_by_name(
         args.model_name, get_best_checkpoint_path(model_dir)
@@ -173,6 +185,9 @@ def evaluate(args):
             split=args.dataset_evaluation_split,
         )
         label_feature_name = "answerText"
+        logger.info(
+            f"Eval: MINTAKA Dataset loaded, label_feature_name={label_feature_name}"
+        )
     else:
         dataset = load_kbqa_seq2seq_dataset(
             args.dataset_name,
@@ -183,6 +198,7 @@ def evaluate(args):
             apply_redirects_augmentation=args.apply_redirects_augmentation,
         )
         label_feature_name = "object"
+        logger.info(f"Eval: Dataset loaded, label_feature_name={label_feature_name}")
 
     results_df, report = make_report(
         model=model,
@@ -199,26 +215,62 @@ def evaluate(args):
     )
 
     eval_report_dir = dump_eval(results_df, report, args, normolized_model_name)
-    print(report)
+    mlflow.log_metrics(report)
+    mlflow.log_artifacts(eval_report_dir, "report")
     print(f"Report dumped to {eval_report_dir}")
+
+
+def validate_args(args):
+    if (
+        args.apply_redirects_augmentation is True
+        and args.trainer_mode == "Seq2SeqWikidataRedirectsTrainer"
+    ):
+        raise ValueError(
+            "Do not use apply_redirects_augmentation with Seq2SeqWikidataRedirectsTrainer - trash data"
+        )
 
 
 if __name__ == "__main__":
     args = parser.parse_args()
+    validate_args(args)
+
+    mlflow.set_tracking_uri(args.mlflow_tracking_uri)
+
+    model_dir, logging_dir, normolized_model_name = get_model_logging_dirs(
+        args.save_dir, args.model_name, args.run_name
+    )
+    dataset_name = Path(args.dataset_name).name
+
+    if args.mlflow_experiment_name is not None:
+        mlflow_experiment_name = args.mlflow_experiment_name
+    else:
+        mlflow_experiment_name = f"seq2seq/{dataset_name}"
+
+    os.environ["HF_MLFLOW_LOG_ARTIFACTS"] = "True"
+
+    os.environ["MLFLOW_EXPERIMENT_NAME"] = mlflow_experiment_name
+    mlflow.set_experiment(mlflow_experiment_name)
+    mlflow.set_experiment_tag("normolized_model_name", normolized_model_name)
+
+    if args.mlflow_run_name is not None:
+        mlflow.start_run(run_name=args.mlflow_run_name)
+
+    mlflow.log_params({"args/" + key: value for key, value in vars(args).items()})
 
     if args.mode == "train":
-        if (
-            args.apply_redirects_augmentation is True
-            and args.trainer_mode == "Seq2SeqWikidataRedirectsTrainer"
-        ):
-            raise ValueError(
-                "Do not use apply_redirects_augmentation with Seq2SeqWikidataRedirectsTrainer - trash data"
-            )
-
-        train(args)
+        mlflow.set_tag("trained_on", dataset_name)
+        train(args, model_dir, logging_dir)
     elif args.mode == "eval":
-        evaluate(args)
+        mlflow.set_tag("evaluated_on", dataset_name)
+        evaluate(args, model_dir, normolized_model_name)
+    elif args.mode == "train_eval":
+        mlflow.set_tag("trained_on", dataset_name)
+        mlflow.set_tag("evaluated_on", dataset_name)
+        train(args, model_dir, logging_dir)
+        evaluate(args, model_dir, normolized_model_name)
     else:
         raise ValueError(
             f"Wrong mode argument passed: must be train or eval, passed {args.mode}"
         )
+
+    mlflow.end_run()

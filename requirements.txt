@@ -20,3 +20,4 @@ jupyterlab
 scikit-learn
 tensorflow
 spacy
+mlflow
