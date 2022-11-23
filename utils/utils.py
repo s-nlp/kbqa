@@ -2,6 +2,8 @@ from typing import List, Union
 import re
 from wikidata.wikidata_entity_to_label import WikidataEntityToLabel
 
+import logging
+
 
 def entities_to_labels(
     entities: Union[List[str], str], entity2label: WikidataEntityToLabel
@@ -23,3 +25,9 @@ def entities_to_labels(
             entities[idx] = entity2label.get_label(entity)
 
     return entities
+
+
+def get_default_logger():
+    logger = logging.getLogger("KBQA")
+    logger.setLevel(logging.INFO)
+    return logger
