@@ -1,4 +1,12 @@
 # pylint: disable=logging-format-interpolation
+# pylint: disable=missing-module-docstring
+# pylint: disable=missing-class-docstring
+# pylint: disable=missing-function-docstring
+# pylint: disable=line-too-long
+# pylint: disable=W0703
+# pylint: disable=R1710
+# pylint: disable=R0911
+# pylint: disable=W1203
 
 import logging
 import time
@@ -29,12 +37,15 @@ class WikidataLabelToEntity(WikidataBase):
             entity_id = self._request_wikidata(entity_name)
             if entity_id is not None:
                 self.cache[entity_name] = entity_id
+                self.save_cache()
+            else:
+                self.cache[entity_name] = ""
+                self.save_cache()
 
         return self.cache.get(entity_name)
 
     def _create_query(self, entity_name):
-        if not isinstance(entity_name, str):
-            entity_name = str(entity_name)
+        print(entity_name)
         query = """
         PREFIX schema: <http://schema.org/>
         PREFIX wikibase: <http://wikiba.se/ontology#>
@@ -49,8 +60,9 @@ class WikidataLabelToEntity(WikidataBase):
         )
         return query
 
-    def _try_request(self, query, url):
-        try:
+    def _request_wikidata(self, entity_name):
+        def run_request(entity_name, url):
+            query = self._create_query(entity_name)
             request = requests.get(
                 url,
                 params={"format": "json", "query": query},
@@ -58,43 +70,38 @@ class WikidataLabelToEntity(WikidataBase):
                 headers={"Accept": "application/json"},
             )
             data = request.json()
-
             return data["results"]["bindings"][0]["item"]["value"].split("/")[-1]
 
-        except requests.exceptions.ConnectionError as connection_exception:
-            logging.error(str(connection_exception))
-            raise connection_exception
+        def _try_request(entity_name, url, continue_redirecting=True):
+            try:
+                return run_request(entity_name, url)
+            except ValueError:
+                logging.info("sleep 2...")
+                logging.error("false redirects")
+                time.sleep(2)
+                return ""
+            except requests.exceptions.ConnectionError as connection_exception:
+                logging.error(str(connection_exception))
+                raise connection_exception
+            except Exception:
+                if continue_redirecting is True:
+                    logging.error(
+                        f'ERROR with entity "{entity_name}", fetching for redirects'
+                    )
 
-        except ValueError:
-            logging.info("sleep 60...")
-            time.sleep(60)
-            return self._try_request(query, url)
+                    redirects = self.redirect_cache.get_redirects(entity_name)
+                    if redirects == "No results found":
+                        return ""
+                    for redirect in redirects:
+                        new_redirect = _try_request(
+                            redirect, url, continue_redirecting=False
+                        )
+                        if new_redirect != "":
+                            return new_redirect
+                else:
+                    logging.error(
+                        f'ERROR with entity "{entity_name}", fetching for redirects, no redirects found (BREAK)'
+                    )
+                    return ""
 
-        except Exception:
-            return None
-
-    def _request_wikidata(self, entity_name):
-        query = self._create_query(entity_name)
-        res = self._try_request(query, self.sparql_endpoint)
-
-        # if valid answer, return res
-        if res is not None:
-            return res
-
-        logging.warning(
-            'ERROR with entity "{}", fetching for redirects'.format(entity_name)
-        )
-        redirects = self.redirect_cache.get_redirects(entity_name)
-        if redirects == "No results found":
-            return ""
-
-        for redirect in redirects:
-            new_query = self._create_query(redirect)
-            new_res = self._try_request(new_query, self.sparql_endpoint)
-
-            # if we get a result for redirect, end loop and return
-            if new_res is not None:
-                return new_res
-
-        # all redirects have been checked and no id
-        return ""
+        return _try_request(entity_name, self.sparql_endpoint)
