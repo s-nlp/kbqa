@@ -37,20 +37,23 @@ class Seq2SeqWikidataRedirectsTrainer(Seq2SeqTrainer):
         # encode the redirects
         encoded_redirects = [labels]
         for red in redirects:
-            # pad to 1024
-            tokenized = self.tokenizer.encode(
-                red, max_length=1024, padding="max_length"
-            )
+            if isinstance(red, str):
+                tokenized = self.tokenizer.encode(
+                    red,
+                    padding="max_length",
+                    max_length=logits.size(0),
+                    truncation=True,
+                )
 
-            res = torch.LongTensor(tokenized).cuda()
-            encoded_redirects.append(res)
+                res = torch.LongTensor(tokenized).cuda()
+                encoded_redirects.append(res)
 
         # getting the min entropy score
         loss_fct = nn.CrossEntropyLoss()
         loss = None
         curr_min = float("inf")
         for red in encoded_redirects:
-            curr_loss = loss_fct(logits, red)
+            curr_loss = loss_fct(logits, red[: logits.size(0)])
 
             if curr_loss.item() < curr_min:
                 loss = curr_loss
