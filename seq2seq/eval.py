@@ -71,7 +71,7 @@ def predict_answers(
     return generated_decoded
 
 
-def compute_metrics(eval_preds):
+def compute_metrics(eval_preds, tokenizer):
 
     preds, labels = eval_preds
     wiki_redirects = WikidataRedirectsCache()
