@@ -114,18 +114,20 @@ def convert_to_features(
     Returns:
         Dict: HF Dataset tokenized batch
     """
-    input_encodings = tokenizer.batch_encode_plus(
+    input_encodings = tokenizer(
         example_batch[question_feature_name],
-        padding=True,
+        padding="max_length",
         truncation=True,
+        max_length=tokenizer.model_max_length,
     )
-    target_encodings = tokenizer.batch_encode_plus(
+    target_encodings = tokenizer(
         [
             obj[0] if isinstance(obj, list) else obj
             for obj in example_batch[label_feature_name]
         ],
-        padding=True,
+        padding="max_length",
         truncation=True,
+        max_length=tokenizer.model_max_length,
     )
 
     labels = target_encodings["input_ids"]

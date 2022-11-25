@@ -31,8 +31,8 @@ parser.add_argument(
     default="t5-base",
     choices=SEQ2SEQ_AVAILABLE_HF_PRETRAINED_MODEL_NAMES,
 )
-parser.add_argument("--dataset_name", default="../wikidata_simplequestions/")
-parser.add_argument("--dataset_config_name", default="answerable_en")
+parser.add_argument("--dataset_name", default="AmazonScience/mintaka")
+parser.add_argument("--dataset_config_name", default="en")
 parser.add_argument("--dataset_evaluation_split", default="test")
 parser.add_argument("--dataset_cache_dir", default="../datasets/")
 parser.add_argument("--save_dir", default="../runs")
@@ -47,7 +47,7 @@ parser.add_argument(
 )
 parser.add_argument(
     "--mlflow_tracking_uri",
-    default="file:///workspace/mlruns",
+    default="file:///workspace/runs/mlruns",
     help="URI for mlflow tracking",
 )
 parser.add_argument(
@@ -260,14 +260,23 @@ if __name__ == "__main__":
     if args.mode == "train":
         mlflow.set_tag("trained_on", dataset_name)
         train(args, model_dir, logging_dir)
+
     elif args.mode == "eval":
+        if (Path(logging_dir) / "args.json").is_file():
+            with open(Path(logging_dir) / "args.json", "r") as file_handler:
+                training_args = json.load(file_handler)
+            training_dataset_name = Path(training_args["dataset_name"]).name
+            mlflow.set_tag("trained_on", training_dataset_name)
+
         mlflow.set_tag("evaluated_on", dataset_name)
         evaluate(args, model_dir, normolized_model_name)
+
     elif args.mode == "train_eval":
         mlflow.set_tag("trained_on", dataset_name)
         mlflow.set_tag("evaluated_on", dataset_name)
         train(args, model_dir, logging_dir)
         evaluate(args, model_dir, normolized_model_name)
+
     else:
         raise ValueError(
             f"Wrong mode argument passed: must be train or eval, passed {args.mode}"
