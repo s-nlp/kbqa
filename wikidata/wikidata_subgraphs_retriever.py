@@ -4,6 +4,7 @@ import enum
 import logging
 import requests
 
+from typing import List, Optional
 from config import DEFAULT_CACHE_PATH
 from wikidata.base import WikidataBase
 from wikidata.wikidata_entity_to_label import WikidataEntityToLabel
