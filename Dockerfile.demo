@@ -1,0 +1,16 @@
+FROM huggingface/transformers-pytorch-gpu:4.22.0
+
+COPY ./requirements.txt /
+RUN pip3 install --upgrade pip && \
+    pip3 install -r /requirements.txt
+
+WORKDIR /workspace/kbqa/
+
+COPY ./*.py /workspace/kbqa/
+COPY ./*.sh /workspace/kbqa/
+COPY ./wikidata/ /workspace/kbqa/wikidata/
+COPY ./caches/ /workspace/kbqa/caches/
+COPY ./seq2seq/ /workspace/kbqa/seq2seq/
+COPY ./utils/ /workspace/kbqa/utils/
+
+CMD ["bash", "candidate_generation_run.sh"]

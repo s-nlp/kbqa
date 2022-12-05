@@ -21,3 +21,5 @@ scikit-learn
 tensorflow
 spacy
 mlflow
+gradio
+python-telegram-bot
