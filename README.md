@@ -75,3 +75,19 @@ SPARQL_ENDPOINT = "http://localhost:7200/repositories/wikidata"
 SPARQL_ENGINE = "graphdb"
 ```
 
+### Demo
+For run Candidate Generation Demo webapp and TG bot
+```bash
+docker build -f ./Dockerfile.demo -t kbqa_bot ./
+```
+
+```bash
+docker run \
+    -p 7860:7860 \
+    -v /home/salnikov/nlp2_seq2seq_runs/:/workspace/runs/ \
+    --name kbqa_demo_bot \
+    -e TG_QA_CG_BOT_KEY=<TG_BOT_KEY> \
+    -e QA_CG_DEMO_MODEL_PATH=/workspace/runs/<PATH_TO_MODEL_DIR_INSIDE_DOCKER> \
+    -e QA_CG_DEMO_MODEL_NAME=<MODEL_NAME> \
+    -it kbqa_bot
+```
