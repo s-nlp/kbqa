@@ -30,16 +30,20 @@ class NerToSentenceInsertion(CacheBase):
             doc = nlp(test_question)
             entities_list = [ent.text for ent in doc.ents]
             num_entities = len(entities_list)
-            entities = ",".join(entities_list)
-            if entities != "":
-                index = test_question.find(entities)
-                ner_question = (
-                    test_question[:index]
-                    + "[START] "
-                    + test_question[index : index + len(entities)]
-                    + " [END]"
-                    + test_question[index + len(entities) :]
-                )
+            if num_entities > 0:
+                ner_question = test_question
+                for entity in entities_list:
+                    entity_index_in_string = ner_question.find(entity)
+                    ner_question = (
+                        ner_question[:entity_index_in_string]
+                        + " [START] "
+                        + ner_question[
+                            entity_index_in_string : entity_index_in_string
+                            + len(entity)
+                        ]
+                        + " [END] "
+                        + ner_question[entity_index_in_string + len(entity) :]
+                    ).replace("  ", " ")
             else:
                 ner_question = "[START] " + str(test_question) + " [END]"
 
