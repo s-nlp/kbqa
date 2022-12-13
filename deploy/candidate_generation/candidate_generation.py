@@ -1,14 +1,13 @@
 # pylint: disable=arguments-differ
 
-from pathlib import Path
+import logging
+import os
 
 import gradio as gr
-from transformers import Pipeline
+from transformers import Pipeline, T5ForConditionalGeneration, T5Tokenizer
 
-from seq2seq.utils import load_model_and_tokenizer_by_name
-from utils.train_eval import get_best_checkpoint_path
-
-import os
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 
 class Seq2SeqCandidateGeneratorPipeline(Pipeline):
@@ -66,17 +65,20 @@ class Seq2SeqCandidateGeneratorPipeline(Pipeline):
 
 
 if __name__ == "__main__":
-    model_path = get_best_checkpoint_path(
-        Path(
-            os.environ.get(
-                "QA_CG_DEMO_MODEL_PATH",
-                "../runs/mintaka_tunned/google_t5-large-ssm-nq/models/",
-            )
-        )
+    with open("examples.txt", "r") as file:
+        examples = [e.replace("\n", "") for e in file.readlines()]
+    logger.info("Examples loaded: " + "\n".join(examples))
+
+    model_path = os.environ.get(
+        "CANDIDATE_GENERATION_MODEL_PATH",
+        "/workspace/runs/mintaka_tunned/google_t5-large-ssm-nq/models/checkpoint-3500/",
     )
-    model, tokenizer = load_model_and_tokenizer_by_name(
-        os.environ.get("QA_CG_DEMO_MODEL_NAME", "google/t5-large-ssm-nq"), model_path
+    tokenizer_path_or_name = os.environ.get(
+        "CANDIDATE_GENERATION_TOKENIZER_PATH_OR_NAME", "t5-large"
     )
+
+    model = T5ForConditionalGeneration.from_pretrained(model_path)
+    tokenizer = T5Tokenizer.from_pretrained(tokenizer_path_or_name)
 
     candidate_generator = Seq2SeqCandidateGeneratorPipeline(
         model=model,
@@ -89,11 +91,14 @@ if __name__ == "__main__":
         outputs=gr.JSON(),
         title="Candidate Genearion for QA",
         description="T5 Large SSM NQ for Candidate Generation for Question Answerring problem",
+        examples=examples,
+        cache_examples=True,
+        analytics_enabled=True,
     )
 
     candidate_generation_demo.launch(
         server_name="0.0.0.0",
-        server_port=7860,
+        server_port=int(os.environ.get("PORT", 7860)),
         share=False,
         enable_queue=True,
     )
