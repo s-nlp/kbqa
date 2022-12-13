@@ -20,9 +20,12 @@ class EntitiesSelection:
 
         for pred_text in mgenre_predicted_entities_list:
             labels = []
-            _label, lang = pred_text.split(" >> ")
-            if lang == "en":
-                labels.append(_label)
+            try:
+                _label, lang = pred_text.split(" >> ")
+                if lang == "en":
+                    labels.append(_label)
+            except Exception as e:
+                logger.error(f"Error {str(e)} with pred_text={pred_text}")
 
             if len(labels) > 0:
                 for label in labels:
@@ -57,7 +60,9 @@ class EntityLinker:
         mgenre_num_return_sequences: int,
     ):
         self._init_ner(ner_model_path, ner_examples_path)
-        self._init_mgenre(mgenre_examples_path, mgenre_num_beams, mgenre_num_return_sequences)
+        self._init_mgenre(
+            mgenre_examples_path, mgenre_num_beams, mgenre_num_return_sequences
+        )
         self.entity_selection_model = EntitiesSelection(self.ner_model)
 
     def get_ner_interface(
@@ -136,7 +141,9 @@ class EntityLinker:
         self.ner = NerToSentenceInsertion(ner_model_path)
         self.ner_model = self.ner.model
 
-    def _init_mgenre(self, mgenre_examples_path, mgenre_num_beams, mgenre_num_return_sequences):
+    def _init_mgenre(
+        self, mgenre_examples_path, mgenre_num_beams, mgenre_num_return_sequences
+    ):
         with open(mgenre_examples_path, "r") as file:
             self.mgenre_examples = [e.replace("\n", "") for e in file.readlines()]
         logger.info("mGENRE examples loaded: " + "\n".join(self.mgenre_examples))

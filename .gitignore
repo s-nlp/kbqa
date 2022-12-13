@@ -13,3 +13,6 @@ ipython_config.py
 # VScode
 .vscode/
 .DS_Store
+
+# Files
+*.pkl
