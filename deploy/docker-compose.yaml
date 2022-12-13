@@ -1,0 +1,148 @@
+version: "3.9"
+
+services:
+  # redis:
+  #   image: redis:alpine
+  #   ports:
+  #     - "6379"
+  #   networks:
+  #     - frontend
+  #   deploy:
+  #     replicas: 2
+  #     update_config:
+  #       parallelism: 2
+  #       delay: 10s
+  #     restart_policy:
+  #       condition: on-failure
+
+  # db:
+  #   image: postgres:9.4
+  #   volumes:
+  #     - db-data:/var/lib/postgresql/data
+  #   networks:
+  #     - backend
+  #   deploy:
+  #     placement:
+  #       max_replicas_per_node: 1
+  #       constraints:
+  #         - "node.role==manager"
+
+  # vote:
+  #   image: dockersamples/examplevotingapp_vote:before
+  #   ports:
+  #     - "5000:80"
+  #   networks:
+  #     - frontend
+  #   depends_on:
+  #     - redis
+  #   deploy:
+  #     replicas: 2
+  #     update_config:
+  #       parallelism: 2
+  #     restart_policy:
+  #       condition: on-failure
+
+  # result:
+  #   image: dockersamples/examplevotingapp_result:before
+  #   ports:
+  #     - "5001:80"
+  #   networks:
+  #     - backend
+  #   depends_on:
+  #     - db
+  #   deploy:
+  #     replicas: 1
+  #     update_config:
+  #       parallelism: 2
+  #       delay: 10s
+  #     restart_policy:
+  #       condition: on-failure
+
+  # worker:
+  #   image: dockersamples/examplevotingapp_worker
+  #   networks:
+  #     - frontend
+  #     - backend
+  #   deploy:
+  #     mode: replicated
+  #     replicas: 1
+  #     labels: [APP=VOTING]
+  #     restart_policy:
+  #       condition: on-failure
+  #       delay: 10s
+  #       max_attempts: 3
+  #       window: 120s
+  #     placement:
+  #       constraints:
+  #         - "node.role==manager"
+
+  # visualizer:
+  #   image: dockersamples/visualizer:stable
+  #   ports:
+  #     - "8080:8080"
+  #   stop_grace_period: 1m30s
+  #   volumes:
+  #     - "/var/run/docker.sock:/var/run/docker.sock"
+  #   deploy:
+  #     placement:
+  #       constraints:
+  #         - "node.role==manager"
+
+  entity_linking:
+    build:
+      context: ./entity_linking/
+      dockerfile: Dockerfile
+    networks:
+      - backend
+    volumes:
+      - /home/salnikov/ner_model:/workspace/ner/
+    environment:
+      - NER_MODEL_PATH=/workspace/ner/
+    deploy:
+      mode: replicas
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+
+
+  candidate_generation:
+    build:
+      context: ./candidate_generation/
+      dockerfile: Dockerfile
+    networks:
+      - backend
+    volumes:
+      - /home/salnikov/nlp2_seq2seq_runs/:/workspace/runs/
+    environment:
+      - CANDIDATE_GENERATION_MODEL_PATH=/workspace/runs/mintaka_tunned/google_t5-large-ssm-nq/models/checkpoint-3500/
+      - CANDIDATE_GENERATION_TOKENIZER_PATH_OR_NAME=google/t5-large-ssm-nq
+    deploy:
+      mode: replicas
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+
+  tg_bot:
+    build:
+      context: ./telegram_bot
+      dockerfile: Dockerfile
+    environment:
+      - TELEGRAM_BOT_KEY=${TELEGRAM_BOT_KEY}
+      - CANDIDATE_GENERATION_URI=http://candidate_generation:7860
+      - ENTITY_LINKING_URI=http://entity_linking:7860
+    depends_on:
+      - candidate_generation
+      - entity_linking
+    networks:
+      - backend
+    
+    
+
+networks:
+  backend:
+
+# volumes:
+#   models_storage:
+#     external: true
