@@ -11,8 +11,8 @@ class NerToSentenceInsertion(CacheBase):
 
     def __init__(
         self,
-        cache_dir_path: str = DEFAULT_CACHE_PATH,
         model_path: str = ".spacy-finetuned/output/model-best",
+        cache_dir_path: str = DEFAULT_CACHE_PATH,
     ) -> None:
 
         super().__init__(cache_dir_path, "wikidata_with_ner.pkl")
@@ -21,7 +21,7 @@ class NerToSentenceInsertion(CacheBase):
 
         self.model = spacy.load(model_path)
 
-    def entity_labeling(self, test_question, get_num_entities=False):
+    def entity_labeling(self, test_question, return_entities_list=False):
         """First lettters capitalization and START/END tokens for entities insertion"""
 
         if test_question not in self.cache:
@@ -54,11 +54,11 @@ class NerToSentenceInsertion(CacheBase):
                     sent_split.append(elem[0].upper() + elem[1:])
             ner_largecase_question = " ".join(sent_split)
 
-            self.cache[test_question] = (ner_largecase_question, num_entities)
+            self.cache[test_question] = (ner_largecase_question, entities_list)
             self.save_cache()
         else:
-            ner_largecase_question, num_entities = self.cache[test_question]
+            ner_largecase_question, entities_list = self.cache[test_question]
 
-        if get_num_entities:
-            return ner_largecase_question, num_entities
+        if return_entities_list:
+            return ner_largecase_question, entities_list
         return ner_largecase_question
