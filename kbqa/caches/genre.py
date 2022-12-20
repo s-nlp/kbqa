@@ -1,7 +1,7 @@
 import torch
 
-from caches.base import CacheBase
-from config import DEFAULT_CACHE_PATH
+from .base import CacheBase
+from ..config import DEFAULT_CACHE_PATH
 
 
 class GENREWikidataEntityesCache(CacheBase):

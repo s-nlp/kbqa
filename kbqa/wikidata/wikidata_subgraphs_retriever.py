@@ -5,10 +5,10 @@ import logging
 import requests
 
 from typing import List, Optional
-from config import DEFAULT_CACHE_PATH
-from wikidata.base import WikidataBase
-from wikidata.wikidata_entity_to_label import WikidataEntityToLabel
-from wikidata.wikidata_shortest_path import WikidataShortestPathCache
+from ..config import DEFAULT_CACHE_PATH
+from .base import WikidataBase
+from .wikidata_entity_to_label import WikidataEntityToLabel
+from .wikidata_shortest_path import WikidataShortestPathCache
 
 
 class SubgraphNodeType(str, enum.Enum):

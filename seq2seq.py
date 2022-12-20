@@ -4,18 +4,18 @@ import os
 import mlflow
 import torch
 from pathlib import Path
-from config import SEQ2SEQ_AVAILABLE_HF_PRETRAINED_MODEL_NAMES
-from seq2seq.eval import make_report
-from seq2seq.train import train as train_seq2seq
-from seq2seq.utils import (
+from kbqa.config import SEQ2SEQ_AVAILABLE_HF_PRETRAINED_MODEL_NAMES
+from kbqa.seq2seq.eval import make_report
+from kbqa.seq2seq.train import train as train_seq2seq
+from kbqa.seq2seq.utils import (
     dump_eval,
     get_model_logging_dirs,
     load_kbqa_seq2seq_dataset,
     load_mintaka_seq2seq_dataset,
     load_model_and_tokenizer_by_name,
 )
-from utils.train_eval import get_best_checkpoint_path
-from utils import get_default_logger
+from kbqa.utils.train_eval import get_best_checkpoint_path
+from kbqa.utils import get_default_logger
 
 logger = get_default_logger()
 

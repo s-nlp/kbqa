@@ -16,3 +16,8 @@ ipython_config.py
 
 # Files
 *.pkl
+
+# Setuptools
+build/
+dist/
+kbqa.egg-info/

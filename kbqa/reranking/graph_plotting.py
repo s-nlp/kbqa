@@ -5,8 +5,8 @@ module for plotting subgraphs
 """
 import networkx as nx
 import matplotlib.pyplot as plt
-from wikidata.wikidata_entity_to_label import WikidataEntityToLabel
-from wikidata.wikidata_subgraphs_retriever import SubgraphNodeType
+from ..wikidata.wikidata_entity_to_label import WikidataEntityToLabel
+from ..wikidata.wikidata_subgraphs_retriever import SubgraphNodeType
 import graphviz
 
 

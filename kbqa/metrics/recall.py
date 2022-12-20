@@ -1,4 +1,4 @@
-from wikidata.wikidata_redirects import WikidataRedirectsCache
+from ..wikidata.wikidata_redirects import WikidataRedirectsCache
 from typing import List, Optional, Union
 from tqdm.auto import tqdm
 

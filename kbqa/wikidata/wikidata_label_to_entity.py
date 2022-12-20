@@ -13,9 +13,9 @@ import time
 
 import requests
 
-from config import DEFAULT_CACHE_PATH
-from wikidata.base import WikidataBase
-from wikidata.wikidata_redirects import WikidataRedirectsCache
+from ..config import DEFAULT_CACHE_PATH
+from .base import WikidataBase
+from .wikidata_redirects import WikidataRedirectsCache
 
 
 class WikidataLabelToEntity(WikidataBase):

@@ -2,8 +2,8 @@
 
 import spacy
 
-from caches.base import CacheBase
-from config import DEFAULT_CACHE_PATH
+from .base import CacheBase
+from ..config import DEFAULT_CACHE_PATH
 
 
 class NerToSentenceInsertion(CacheBase):

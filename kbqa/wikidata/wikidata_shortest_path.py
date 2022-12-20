@@ -8,8 +8,8 @@ from typing import List
 
 import requests
 
-from config import DEFAULT_CACHE_PATH, SPARQL_ENGINE
-from wikidata.base import WikidataBase
+from ..config import DEFAULT_CACHE_PATH, SPARQL_ENGINE
+from .base import WikidataBase
 
 
 class WikidataShortestPathCache(WikidataBase):

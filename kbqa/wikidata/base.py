@@ -1,7 +1,7 @@
-from caches.base import CacheBase
+from ..caches.base import CacheBase
 import os
 from urllib.parse import urlparse
-from config import SPARQL_ENDPOINT, DEFAULT_CACHE_PATH
+from ..config import SPARQL_ENDPOINT, DEFAULT_CACHE_PATH
 
 
 class WikidataBase(CacheBase):
