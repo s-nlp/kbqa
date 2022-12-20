@@ -1,6 +1,6 @@
 from typing import List, Union
 import re
-from wikidata.wikidata_entity_to_label import WikidataEntityToLabel
+from ..wikidata.wikidata_entity_to_label import WikidataEntityToLabel
 
 import logging
 

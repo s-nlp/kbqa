@@ -7,10 +7,10 @@ import datasets
 import torch
 import pandas as pd
 from torch.utils.data import DataLoader
-from wikidata.wikidata_redirects import WikidataRedirectsCache
+from ..wikidata.wikidata_redirects import WikidataRedirectsCache
 import evaluate
-from metrics.recall import recall
-from utils import get_default_logger
+from ..metrics.recall import recall
+from ..utils import get_default_logger
 
 
 logger = get_default_logger()

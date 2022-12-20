@@ -15,9 +15,9 @@ from transformers import (
     T5Tokenizer,
 )
 
-from config import SEQ2SEQ_AVAILABLE_HF_PRETRAINED_MODEL_NAMES
-from utils import entities_to_labels
-from wikidata import WikidataEntityToLabel, WikidataRedirectsCache
+from ..config import SEQ2SEQ_AVAILABLE_HF_PRETRAINED_MODEL_NAMES
+from ..utils import entities_to_labels
+from ..wikidata import WikidataEntityToLabel, WikidataRedirectsCache
 
 
 def load_model_and_tokenizer_by_name(

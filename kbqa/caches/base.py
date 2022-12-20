@@ -2,7 +2,7 @@ import os
 import pickle
 from abc import ABC
 
-from config import DEFAULT_CACHE_PATH
+from ..config import DEFAULT_CACHE_PATH
 
 
 class CacheBase(ABC):

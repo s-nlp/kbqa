@@ -1,7 +1,7 @@
 from typing import Tuple
 import datasets
-from seq2seq.redirect_trainer import Seq2SeqWikidataRedirectsTrainer
-from wikidata.wikidata_redirects import WikidataRedirectsCache
+from .redirect_trainer import Seq2SeqWikidataRedirectsTrainer
+from ..wikidata.wikidata_redirects import WikidataRedirectsCache
 
 from transformers import (
     PreTrainedModel,

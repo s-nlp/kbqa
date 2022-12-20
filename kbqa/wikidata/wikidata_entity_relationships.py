@@ -13,12 +13,12 @@ from collections import Counter
 
 import requests
 
-from config import DEFAULT_CACHE_PATH
-from wikidata.wikidata_label_to_entity import WikidataLabelToEntity
-from wikidata.wikidata_entity_to_label import WikidataEntityToLabel
+from ..config import DEFAULT_CACHE_PATH
+from .wikidata_label_to_entity import WikidataLabelToEntity
+from .wikidata_entity_to_label import WikidataEntityToLabel
 
-from wikidata.base import WikidataBase
-from wikidata.wikidata_redirects import WikidataRedirectsCache
+from .base import WikidataBase
+from .wikidata_redirects import WikidataRedirectsCache
 
 
 class WikidataEntityRelationships(WikidataBase):

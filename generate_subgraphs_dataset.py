@@ -8,15 +8,15 @@ import shutil
 from pathlib import Path
 import networkx as nx
 
-from caches.ner_to_sentence_insertion import NerToSentenceInsertion
+from kbqa.caches.ner_to_sentence_insertion import NerToSentenceInsertion
 from genre.fairseq_model import mGENRE  # pylint: disable=import-error,import-error
-from wikidata.wikidata_entity_to_label import WikidataEntityToLabel
-from caches.genre import GENREWikidataEntityesCache
+from kbqa.wikidata.wikidata_entity_to_label import WikidataEntityToLabel
+from kbqa.caches.genre import GENREWikidataEntityesCache
 from subgraphs_dataset.question_entities_candidate import QuestionEntitiesCandidates
-from wikidata.wikidata_subgraphs_retriever import SubgraphsRetriever
-from wikidata.wikidata_shortest_path import WikidataShortestPathCache
-from wikidata.wikidata_label_to_entity import WikidataLabelToEntity
-from wikidata.wikidata_redirects import WikidataRedirectsCache
+from kbqa.wikidata.wikidata_subgraphs_retriever import SubgraphsRetriever
+from kbqa.wikidata.wikidata_shortest_path import WikidataShortestPathCache
+from kbqa.wikidata.wikidata_label_to_entity import WikidataLabelToEntity
+from kbqa.wikidata.wikidata_redirects import WikidataRedirectsCache
 from genre.trie import Trie, MarisaTrie  # pylint: disable=unused-import,import-error
 import warnings
 

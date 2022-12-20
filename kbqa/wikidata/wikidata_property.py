@@ -3,8 +3,8 @@ import time
 
 import requests
 
-from config import DEFAULT_CACHE_PATH
-from wikidata.base import WikidataBase
+from ..config import DEFAULT_CACHE_PATH
+from .base import WikidataBase
 
 
 class WikidataProperty(WikidataBase):

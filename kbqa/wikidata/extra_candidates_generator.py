@@ -7,12 +7,12 @@ from typing import Optional
 
 import numpy as np
 
-from caches.base import CacheBase
-from config import DEFAULT_CACHE_PATH
-from metrics import recall
-from wikidata.wikidata_label_to_entity import WikidataLabelToEntity
-from wikidata.wikidata_redirects import WikidataRedirectsCache
-from wikidata.wikidata_subgraphs_retriever import SubgraphsRetriever
+from ..caches.base import CacheBase
+from ..config import DEFAULT_CACHE_PATH
+from ..metrics import recall
+from .wikidata_label_to_entity import WikidataLabelToEntity
+from .wikidata_redirects import WikidataRedirectsCache
+from .wikidata_subgraphs_retriever import SubgraphsRetriever
 
 
 class ExtraCandidateGenerator(CacheBase):
