@@ -3,7 +3,6 @@ transformers==4.21.0
 pandas==1.4.3
 pylint==2.14.4
 SPARQLWrapper==2.0.0
-evaluate
 sacrebleu
 sentencepiece
 pywikibot
@@ -18,7 +17,7 @@ bs4
 marisa_trie
 jupyterlab
 scikit-learn
-tensorflow
+tensorflow<=2.10
 spacy
 mlflow
 gradio
