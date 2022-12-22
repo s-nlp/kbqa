@@ -1,9 +1,6 @@
-import time
-
-import requests
-
 from ..config import DEFAULT_CACHE_PATH
 from .base import WikidataBase
+from .utils import request_to_wikidata
 
 
 class WikidataEntityToLabel(WikidataBase):
@@ -41,30 +38,7 @@ class WikidataEntityToLabel(WikidataBase):
         """.replace(
             "<ENTITY>", entity_idx
         )
-
-        def _try_request(query, url):
-            try:
-                request = requests.get(
-                    url,
-                    params={"format": "json", "query": query},
-                    headers={"Accept": "application/json"},
-                )
-                data = request.json()
-
-                if len(data["results"]["bindings"]) == 0:
-                    return None
-
-                return data["results"]["bindings"][0]["label"]["value"]
-
-            except ValueError:
-                print("sleep 60...")
-                time.sleep(60)
-                return _try_request(query, url)
-
-            except Exception as exception:
-                print(f"ERROR with request query:    {query}\n{str(exception)}")
-                print("sleep 60...")
-                time.sleep(60)
-                return _try_request(query, url)
-
-        return _try_request(query, self.sparql_endpoint)
+        data = request_to_wikidata(query, self.sparql_endpoint)
+        if len(data) == 0:
+            return None
+        return data[0]["label"]["value"]

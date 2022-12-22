@@ -1,5 +1,7 @@
 from pathlib import Path
 
+LOG_FILENAME = "log.json"
+
 SEQ2SEQ_AVAILABLE_HF_PRETRAINED_MODEL_NAMES = [
     "facebook/bart-base",
     "facebook/bart-large",
@@ -13,7 +15,9 @@ SEQ2SEQ_AVAILABLE_HF_PRETRAINED_MODEL_NAMES = [
     "google/flan-t5-large",
 ]
 
-SPARQL_ENDPOINT = "http://localhost:7200/repositories/wikidata"
-SPARQL_ENGINE = "graphdb"
+SPARQL_ENDPOINT = "https://query.wikidata.org/sparql"
+SPARQL_ENGINE = "blazegraph"
 
 DEFAULT_CACHE_PATH = str(Path(__file__).parent / "cache_store")
+
+DEFAULT_LRU_CACHE_MAXSIZE = 16384
