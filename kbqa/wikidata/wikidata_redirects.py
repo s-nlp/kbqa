@@ -1,9 +1,8 @@
 from typing import List
 
-from SPARQLWrapper import JSON, SPARQLWrapper
-
 from ..config import DEFAULT_CACHE_PATH
 from .base import WikidataBase
+from .utils import request_to_wikidata
 
 
 class WikidataRedirectsCache(WikidataBase):
@@ -67,27 +66,9 @@ class WikidataRedirectsCache(WikidataBase):
         }
         """
 
-        nquery = query.replace("VALUE", nterm)
-
-        sparql = SPARQLWrapper(self.sparql_endpoint)
-        sparql.setQuery(nquery)
         rterms = []
-        sparql.setReturnFormat(JSON)
-        try:
-            ret = sparql.query()
-            results = ret.convert()
-            is_request_good = True
-        except Exception:
-            results = ""
-            is_request_good = False
-
-        if is_request_good is False:
-            return "Problem communicating with the server: ", results
-        elif len(results["results"]["bindings"]) == 0:
-            return "No results found"
-        else:
-            for result in results["results"]["bindings"]:
-                label = result["label"]["value"]
-                rterms.append(label)
+        query = query.replace("VALUE", nterm)
+        for result in request_to_wikidata(query, self.sparql_endpoint):
+            rterms.append(result["label"]["value"])
 
         return rterms

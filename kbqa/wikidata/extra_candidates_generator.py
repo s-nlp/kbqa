@@ -13,6 +13,9 @@ from ..metrics import recall
 from .wikidata_label_to_entity import WikidataLabelToEntity
 from .wikidata_redirects import WikidataRedirectsCache
 from .wikidata_subgraphs_retriever import SubgraphsRetriever
+from ..logger import get_logger
+
+logger = get_logger()
 
 
 class ExtraCandidateGenerator(CacheBase):
@@ -68,7 +71,7 @@ class ExtraCandidateGenerator(CacheBase):
                 self.cache[candidate_name] = neighbours_values
                 self.save_cache()
             else:
-                print(f"Empty list of 1-hope neighbours for {candidate}")
+                logger.info({"msg": "Empty list of 1-hope neighbours for {candidate}"})
                 return neighbours_values
 
         return self.cache[candidate_name]

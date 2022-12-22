@@ -8,7 +8,6 @@
 # pylint: disable=R0911
 # pylint: disable=W1203
 
-import logging
 import time
 
 import requests
@@ -16,6 +15,9 @@ import requests
 from ..config import DEFAULT_CACHE_PATH
 from .base import WikidataBase
 from .wikidata_redirects import WikidataRedirectsCache
+from ..logger import get_logger
+
+logger = get_logger()
 
 
 class WikidataLabelToEntity(WikidataBase):
@@ -45,7 +47,6 @@ class WikidataLabelToEntity(WikidataBase):
         return self.cache.get(entity_name)
 
     def _create_query(self, entity_name):
-        print(entity_name)
         query = """
         PREFIX schema: <http://schema.org/>
         PREFIX wikibase: <http://wikiba.se/ontology#>
@@ -76,16 +77,16 @@ class WikidataLabelToEntity(WikidataBase):
             try:
                 return run_request(entity_name, url)
             except ValueError:
-                logging.info("sleep 2...")
-                logging.error("false redirects")
+                logger.info("sleep 2...")
+                logger.error("false redirects")
                 time.sleep(2)
                 return ""
             except requests.exceptions.ConnectionError as connection_exception:
-                logging.error(str(connection_exception))
+                logger.error(str(connection_exception))
                 raise connection_exception
             except Exception:
                 if continue_redirecting is True:
-                    logging.error(
+                    logger.error(
                         f'ERROR with entity "{entity_name}", fetching for redirects'
                     )
 
@@ -99,7 +100,7 @@ class WikidataLabelToEntity(WikidataBase):
                         if new_redirect != "":
                             return new_redirect
                 else:
-                    logging.error(
+                    logger.error(
                         f'ERROR with entity "{entity_name}", fetching for redirects, no redirects found (BREAK)'
                     )
                     return ""

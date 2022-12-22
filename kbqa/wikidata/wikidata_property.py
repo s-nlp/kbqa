@@ -1,10 +1,6 @@
-import logging
-import time
-
-import requests
-
 from ..config import DEFAULT_CACHE_PATH
 from .base import WikidataBase
+from .utils import request_to_wikidata
 
 
 class WikidataProperty(WikidataBase):
@@ -48,33 +44,8 @@ class WikidataProperty(WikidataBase):
             "<ENTITY2>", entity2
         )
 
-        def _try_request(query, url):
-            try:
-                request = requests.get(
-                    url,
-                    params={"format": "json", "query": query},
-                    headers={"Accept": "application/json"},
-                )
-                if request.status_code == 503:  # Timeout
-                    return None
+        data = request_to_wikidata(query, self.sparql_endpoint)
+        if len(data) == 0:
+            return None
 
-                data = request.json()
-
-                if len(data["results"]["bindings"]) == 0:
-                    return None
-
-                return data["results"]["bindings"]
-
-            except requests.exceptions.ConnectionError as connection_exception:
-                logging.error(str(connection_exception))
-                raise connection_exception
-
-            except ValueError:
-                logging.info("sleep 60...")
-                time.sleep(60)
-                return _try_request(query, url)
-
-            except Exception:
-                return None
-
-        return _try_request(query, self.sparql_endpoint)
+        return data
