@@ -1,5 +1,3 @@
-import requests
-import time
 import pickle
 from functools import lru_cache
 
