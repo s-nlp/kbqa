@@ -1,10 +1,10 @@
 version: "3.9"
 
 services:
-  candidate_ranker:
+  candidate_selection:
     build:
-      context: ./candidate_ranker/
-      dockerfile: Dockerfile
+      context: ../
+      dockerfile: ./deploy/candidate_selection/Dockerfile
     networks:
       - backend
     deploy:
@@ -58,11 +58,11 @@ services:
       - TELEGRAM_BOT_KEY=${TELEGRAM_BOT_KEY}
       - CANDIDATE_GENERATION_URI=http://candidate_generation:7860
       - ENTITY_LINKING_URI=http://entity_linking:7860
-      - CANDIDATE_RANKER_URI=http://candidate_ranker:7860
+      - CANDIDATE_SELECTION_URI=http://candidate_selection:7860
     depends_on:
       - candidate_generation
       - entity_linking
-      - candidate_ranker
+      - candidate_selection
     volumes:
       - ${PWD}/data/:/bot/data/
     networks:

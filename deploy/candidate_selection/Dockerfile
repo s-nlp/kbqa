@@ -5,13 +5,13 @@ ENV PIP_DISABLE_PIP_VERSION_CHECK=on
 RUN apt update && \
     apt install wget
 
+COPY ./ /kbqa_package/ 
 RUN pip3 install --upgrade pip && \
-    pip3 install spacy==3.4 altair gradio requests 
+    pip3 install /kbqa_package && \
+    pip3 install uvicorn fastapi
 
 WORKDIR /workspace/
 
-COPY ./src/ /workspace/src/
-COPY ./*.py /workspace/
-# COPY ./*.txt /workspace/
+COPY ./deploy/candidate_selection/*.py /workspace/
 
-CMD ["python3", "./main.py"]
+CMD ["uvicorn", "main:app"]
