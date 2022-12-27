@@ -29,7 +29,7 @@ class Seq2SeqWikidataRedirectsTrainer(Seq2SeqTrainer):
         labels = torch.squeeze(labels)
 
         # Some simple post-processing and getting redirects for labels
-        decoded_labels = self.tokenizer.decode(labels, skip_special_tokens=True)
+        decoded_labels = self.tokenizer.batch_decode(labels, skip_special_tokens=True)
         decoded_labels = [lab.strip() for lab in decoded_labels]
         decoded_labels = "".join(decoded_labels)
         redirects = self.redirect_cache.get_redirects(decoded_labels)
