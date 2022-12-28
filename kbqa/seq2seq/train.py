@@ -2,6 +2,7 @@ from typing import Tuple
 import datasets
 from .redirect_trainer import Seq2SeqWikidataRedirectsTrainer
 from ..wikidata.wikidata_redirects import WikidataRedirectsCache
+from .eval import compute_metrics
 
 from transformers import (
     PreTrainedModel,
@@ -104,7 +105,7 @@ def train(
             eval_dataset=valid_dataset,
             tokenizer=tokenizer,
             redirect_cache=redirect_cache,
-            # compute_metrics=lambda x: compute_metrics(x, tokenizer=tokenizer),
+            compute_metrics=compute_metrics,
         )
     else:
         raise ValueError(
