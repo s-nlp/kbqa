@@ -16,6 +16,7 @@ from ..config import DEFAULT_CACHE_PATH
 from .base import WikidataBase
 from .wikidata_redirects import WikidataRedirectsCache
 from ..logger import get_logger
+from .utils import request_to_wikidata
 
 logger = get_logger()
 
@@ -46,15 +47,21 @@ class WikidataLabelToEntity(WikidataBase):
 
         return self.cache.get(entity_name)
 
+    def __call__(self, label):
+        return self.get_id(label)
+
     def _create_query(self, entity_name):
         query = """
-        PREFIX schema: <http://schema.org/>
-        PREFIX wikibase: <http://wikiba.se/ontology#>
+        # PREFIX schema: <http://schema.org/>
+        # PREFIX wikibase: <http://wikiba.se/ontology#>
 
-        SELECT ?item WHERE{
-                ?item ?label "<ENTITY_NAME>"@en.
-                ?article schema:about ?item .
-                ?article schema:inLanguage "en" .
+        # SELECT ?item WHERE{
+        #         ?item ?label "<ENTITY_NAME>"@en.
+        #         ?article schema:about ?item .
+        #         ?article schema:inLanguage "en" .
+        # }
+        SELECT * WHERE{
+            ?item rdfs:label "<ENTITY_NAME>"@en .
         }
         """.replace(
             "<ENTITY_NAME>", entity_name
@@ -64,14 +71,18 @@ class WikidataLabelToEntity(WikidataBase):
     def _request_wikidata(self, entity_name):
         def run_request(entity_name, url):
             query = self._create_query(entity_name)
-            request = requests.get(
-                url,
-                params={"format": "json", "query": query},
-                timeout=20,
-                headers={"Accept": "application/json"},
-            )
-            data = request.json()
-            return data["results"]["bindings"][0]["item"]["value"].split("/")[-1]
+            # request = requests.get(
+            #     url,
+            #     params={"format": "json", "query": query},
+            #     timeout=20,
+            #     headers={"Accept": "application/json"},
+            # )
+            # data = request.json()
+            data = request_to_wikidata(query, url)
+            if len(data) > 0:
+                return data[0]["item"]["value"].split("/")[-1]
+            else:
+                raise Exception("!!")
 
         def _try_request(entity_name, url, continue_redirecting=True):
             try:
@@ -85,7 +96,7 @@ class WikidataLabelToEntity(WikidataBase):
                 logger.error(str(connection_exception))
                 raise connection_exception
             except Exception:
-                if continue_redirecting is True:
+                if self.redirect_cache is not None and continue_redirecting is True:
                     logger.error(
                         f'ERROR with entity "{entity_name}", fetching for redirects'
                     )
@@ -99,6 +110,8 @@ class WikidataLabelToEntity(WikidataBase):
                         )
                         if new_redirect != "":
                             return new_redirect
+                elif self.redirect_cache is None:
+                    return None
                 else:
                     logger.error(
                         f'ERROR with entity "{entity_name}", fetching for redirects, no redirects found (BREAK)'

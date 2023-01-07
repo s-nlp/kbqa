@@ -8,10 +8,13 @@ import torch
 import pandas as pd
 from torch.utils.data import DataLoader
 from ..wikidata.wikidata_redirects import WikidataRedirectsCache
-import evaluate
 from ..metrics.recall import recall
 from ..utils import get_default_logger
 
+try:
+    import evaluate
+except:
+    pass
 
 logger = get_default_logger()
 
