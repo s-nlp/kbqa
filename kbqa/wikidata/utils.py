@@ -63,6 +63,8 @@ def request_to_wikidata(query, sparql_endpoint=SPARQL_ENDPOINT):
         logger.error(
             {
                 "msg": str(e),
+                "params": params,
+                "endpoint": sparql_endpoint,
                 "response": {
                     "status_code": response.status_code,
                     "headers": dict(response.headers),
