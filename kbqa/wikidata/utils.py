@@ -1,10 +1,9 @@
 import time
-from functools import lru_cache
 from joblib import Memory
 
 import requests
 
-from ..config import DEFAULT_LRU_CACHE_MAXSIZE, SPARQL_ENDPOINT, DEFAULT_CACHE_PATH
+from ..config import SPARQL_ENDPOINT, DEFAULT_CACHE_PATH
 from ..logger import get_logger
 
 
@@ -13,13 +12,16 @@ logger = get_logger()
 memory = Memory(DEFAULT_CACHE_PATH, verbose=0)
 
 
-@lru_cache(maxsize=DEFAULT_LRU_CACHE_MAXSIZE)
 @memory.cache
 def request_to_wikidata(query, sparql_endpoint=SPARQL_ENDPOINT):
     params = {"format": "json", "query": query}
     headers = {
         "Accept": "application/json",
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.102 Safari/537.36",
+        "User-Agent": (
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/50.0.2661.102 Safari/537.36"
+        ),
     }
     logger.info(
         {
@@ -37,7 +39,7 @@ def request_to_wikidata(query, sparql_endpoint=SPARQL_ENDPOINT):
     while response.status_code == 429:
         logger.warning(
             {
-                "msg": f"Request to wikidata endpoint failed. Retry.",
+                "msg": "Request to wikidata endpoint failed. Retry.",
                 "params": params,
                 "endpoint": sparql_endpoint,
                 "response": {
@@ -59,10 +61,10 @@ def request_to_wikidata(query, sparql_endpoint=SPARQL_ENDPOINT):
 
     try:
         return response.json()["results"]["bindings"]
-    except Exception as e:
+    except Exception as exception:
         logger.error(
             {
-                "msg": str(e),
+                "msg": str(exception),
                 "params": params,
                 "endpoint": sparql_endpoint,
                 "response": {
@@ -71,4 +73,4 @@ def request_to_wikidata(query, sparql_endpoint=SPARQL_ENDPOINT):
                 },
             }
         )
-        raise e
+        raise exception

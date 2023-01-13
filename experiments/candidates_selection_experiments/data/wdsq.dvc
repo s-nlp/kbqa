@@ -1,0 +1,12 @@
+md5: 5541677a1340e8d2ec5701a8f3b5a8b8
+frozen: true
+deps:
+- path: ./
+  repo:
+    url: https://github.com/askplatypus/wikidata-simplequestions.git
+    rev_lock: df69267f1db4f85a71325e7e8c06e192bcaf0b0e
+outs:
+- md5: 3cbfbe32ab3dd061fa3f45d482f6e154.dir
+  size: 91582432
+  nfiles: 25
+  path: wdsq

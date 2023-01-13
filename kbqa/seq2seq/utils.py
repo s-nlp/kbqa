@@ -118,7 +118,7 @@ def convert_to_features(
         example_batch[question_feature_name],
         padding="max_length",
         truncation=True,
-        max_length=tokenizer.model_max_length,
+        max_length=64,
     )
     target_encodings = tokenizer(
         [
@@ -127,7 +127,7 @@ def convert_to_features(
         ],
         padding="max_length",
         truncation=True,
-        max_length=tokenizer.model_max_length,
+        max_length=64,
     )
 
     labels = target_encodings["input_ids"]
