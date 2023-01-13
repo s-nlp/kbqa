@@ -1,6 +1,7 @@
 import marisa_trie
 from typing import List, Optional, Dict
 
+
 class MarisaTrie(object):
     def __init__(
         self,

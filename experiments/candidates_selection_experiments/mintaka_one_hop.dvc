@@ -1,0 +1,5 @@
+outs:
+- md5: 3f95d06e98076fb9c0e0625e6df04a4a.dir
+  size: 21070
+  nfiles: 6
+  path: /mnt/raid/data/kbqa/datasets/mintaka_one_hop/

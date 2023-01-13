@@ -1,0 +1,13 @@
+seq2seq:
+  dataset: "wdsq" # rubq, mintaka
+  model:
+    name: "google/t5-large-ssm"
+    path: "/mnt/raid/data/kbqa/seq2seq_runs/wdsq_tunned/google_t5-large-ssm/models/"
+    num_return_sequences: 200
+    num_beams: 200
+    num_beam_groups: 20
+    diversity_penalty: 0.1
+    batch_size: 2
+entity_linking:
+  ner:
+    path: "/mnt/raid/data/kbqa/ner/spacy_models/wdsq_tuned/model-best"

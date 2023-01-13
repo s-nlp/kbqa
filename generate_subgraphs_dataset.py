@@ -155,11 +155,9 @@ def prepare_questions_entities_candidates(
     ner = NerToSentenceInsertion(model_path=args.ner_model_path)
 
     def _get_ner_sentence_entities(df):
-        ner_sentence, ner_entities = ner.entity_labeling(
-            df["question"], get_num_entities=True
-        )
+        ner_sentence, ner_entities = ner.entity_labeling(df["question"], True)
         df["ner_question"] = ner_sentence
-        df["ner_entities"] = ner_entities
+        df["ner_entities"] = len(ner_entities)
         return df
 
     ner_df = df.apply(_get_ner_sentence_entities, axis=1)

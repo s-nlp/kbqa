@@ -169,8 +169,8 @@ class QuestionCandidateRelationSelection:
 
             count = request_to_wikidata(query)
             count = int(count[0]["count"]["value"])
-        except Exception as e:
-            print(e)
+        except Exception as exception:
+            print(exception)
             count = 0
         return count
 
