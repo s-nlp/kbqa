@@ -23,10 +23,7 @@ class Seq2SeqWikidataRedirectsTrainer(Seq2SeqTrainer):
         labels = inputs.get("labels")
         # forward pass
         outputs = model(**inputs)
-        logits = outputs.get("logits")
-
-        logits = torch.squeeze(logits).cuda()
-        labels = torch.squeeze(labels)
+        logits = outputs.get("logits").cuda()
 
         # Some simple post-processing and getting redirects for labels
         decoded_labels = self.tokenizer.batch_decode(labels, skip_special_tokens=True)
@@ -36,11 +33,21 @@ class Seq2SeqWikidataRedirectsTrainer(Seq2SeqTrainer):
             self.redirect_cache.get_redirects(decoded_label)
             for decoded_label in decoded_labels
         ]
+
+        for i, redirect in enumerate(redirects):
+            if isinstance(redirect, tuple):
+                redirects[i] = list(redirect)
+            elif redirect == "No results found":
+                redirects[i] = []
+
+        for i, (_, _) in enumerate(zip(redirects, decoded_labels)):
+            redirects[i].append(decoded_labels[i])
+
         max_redirects_length = max(map(len, redirects))
 
         # encode the redirects
         encoded_redirects_shape = np.zeros(
-            (len(redirects), max_redirects_length, logits.size(1))
+            (len(redirects), max_redirects_length, logits.size(2))
         )
         encoded_redirects = torch.tensor(encoded_redirects_shape)
 
@@ -51,14 +58,14 @@ class Seq2SeqWikidataRedirectsTrainer(Seq2SeqTrainer):
                     tokenized = self.tokenizer.encode(
                         red,
                         padding="max_length",
-                        max_length=logits.size(1),
+                        max_length=logits.size(2),
                         truncation=True,
                     )
                     encoded_reds.append(tokenized)
 
                 res = torch.Tensor(torch.Tensor(encoded_reds)).cuda()
                 pad = torch.zeros(
-                    (max_redirects_length - res.shape[0]), logits.size(1)
+                    (max_redirects_length - res.shape[0]), logits.size(2)
                 ).cuda()
                 res = torch.vstack((res, pad))
                 encoded_redirects[i] = res
@@ -69,7 +76,7 @@ class Seq2SeqWikidataRedirectsTrainer(Seq2SeqTrainer):
         curr_min = float("inf")
         encoded_redirects = torch.permute(encoded_redirects, (0, 2, 1)).cuda()
         for i in range(encoded_redirects.size(2)):
-            curr_loss = loss_fct(logits[:, :, -1], encoded_redirects[:, :, i])
+            curr_loss = loss_fct(logits[:, -1, :], encoded_redirects[:, :, i])
 
             if curr_loss.item() < curr_min:
                 loss = curr_loss

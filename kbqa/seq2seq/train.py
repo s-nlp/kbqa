@@ -3,6 +3,7 @@ import datasets
 from .redirect_trainer import Seq2SeqWikidataRedirectsTrainer
 from ..wikidata.wikidata_redirects import WikidataRedirectsCache
 from .eval import compute_metrics
+import wandb
 
 from transformers import (
     PreTrainedModel,
@@ -85,6 +86,8 @@ def train(
         logging_steps=logging_steps,
         load_best_model_at_end=True,
         gradient_accumulation_steps=gradient_accumulation_steps,
+        report_to="wandb",
+        run_name="redirect_training",
     )
 
     if trainer_mode == "default":
@@ -105,7 +108,7 @@ def train(
             eval_dataset=valid_dataset,
             tokenizer=tokenizer,
             redirect_cache=redirect_cache,
-            compute_metrics=compute_metrics,
+            compute_metrics=lambda x: compute_metrics(x, tokenizer=tokenizer),
         )
     else:
         raise ValueError(
@@ -114,5 +117,6 @@ def train(
         )
 
     trainer.train()
+    wandb.finish()
 
     return trainer
