@@ -1,4 +1,4 @@
-# pip install sparqlwrapper
+# pylint: disable=no-member
 # https://rdflib.github.io/sparqlwrapper/
 
 import sys
@@ -7,17 +7,18 @@ import requests
 import json
 from functools import lru_cache
 
+
 @lru_cache(maxsize=None)
 def get_results(endpoint_url, query):
     user_agent = "WDQS-example Python/%s.%s" % (
         sys.version_info[0],
         sys.version_info[1],
     )
-    # TODO adjust user agent; see https://w.wiki/CX6
     sparql = SPARQLWrapper(endpoint_url, agent=user_agent)
     sparql.setQuery(query)
     sparql.setReturnFormat(JSON)
     return sparql.query().convert()
+
 
 @lru_cache(maxsize=None)
 def run_sitelinks(entity_idx):
@@ -45,8 +46,12 @@ def run_sitelinks(entity_idx):
             sitelinks = result
 
         return sitelinks["count"]["value"]
-    except (SPARQLWrapper.SPARQLExceptions.EndPointInternalError, SPARQLWrapper.SPARQLExceptions.EndPointNotFound):
-        return float('Nan')
+    except (
+        SPARQLWrapper.SPARQLExceptions.EndPointInternalError,
+        SPARQLWrapper.SPARQLExceptions.EndPointNotFound,
+    ):
+        return float("Nan")
+
 
 @lru_cache(maxsize=None)
 def run_query_in(entity_idx):
@@ -69,9 +74,10 @@ def run_query_in(entity_idx):
         request = requests.get(url, params={"format": "json", "query": query})
         data = request.json()
         return data["results"]["bindings"][0]["UniqueInlinks"]["value"]
-    
+
     except (requests.exceptions.ConnectionError, json.decoder.JSONDecodeError):
-        return float('NaN')
+        return float("NaN")
+
 
 @lru_cache(maxsize=None)
 def run_query_out(entity_idx):
@@ -96,4 +102,4 @@ def run_query_out(entity_idx):
         return data["results"]["bindings"][0]["UniqueOutlinks"]["value"]
 
     except (requests.exceptions.ConnectionError, json.decoder.JSONDecodeError):
-        return float('NaN')
+        return float("NaN")

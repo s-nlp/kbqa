@@ -1,4 +1,7 @@
-from reranking.feature_extraction import *
+# pylint: disable=wildcard-import
+# pylint: disable=unused-wildcard-import
+
+from kbqa.reranking.feature_extraction import *
 import pathlib
 import json
 import networkx as nx
@@ -6,8 +9,8 @@ import csv
 from tqdm import tqdm
 import argparse
 import pandas as pd
-from wikidata.wikidata_entity_to_label import WikidataEntityToLabel
-from wikidata.wikidata_subgraphs_retriever import SubgraphNodeType
+from kbqa.wikidata.wikidata_entity_to_label import WikidataEntityToLabel
+from kbqa.wikidata.wikidata_subgraphs_retriever import SubgraphNodeType
 import re
 from get_sitelinks import *
 
@@ -114,7 +117,7 @@ if __name__ == "__main__":
 
         G = nx.from_numpy_array(g)
 
-        n_triangles = number_of_triangles(subgraph, True)
+        N_TRIANGLES = number_of_triangles(subgraph, True)
 
         n_nodes, n_edges = nodes_and_edges(subgraph)
 
@@ -123,44 +126,44 @@ if __name__ == "__main__":
                 candidates.append(node_id)
         if not candidates:
             candidates.append(None)
-        
+
         f_katz_centrality = katz_centrality(subgraph)
-        n_katz_centrality = 0
+        N_KATZ_CENTRALITY = 0
 
         for key, value in f_katz_centrality.items():
             if key == candidates[-1]:
-                n_katz_centrality += value
+                N_KATZ_CENTRALITY += value
 
         f_eigenvector_centrality = eigenvector_centrality(subgraph)
-        n_eigenvector_centrality = 0
+        N_EIGENVECTOR_CENTRALITY = 0
 
         for key, value in f_eigenvector_centrality.items():
             if key == candidates[-1]:
-                n_eigenvector_centrality += value
+                N_EIGENVECTOR_CENTRALITY += value
 
         f_clustering = clustering(subgraph)
-        n_clustering = 0
+        N_CLUSTERING = 0
 
         for key, value in f_clustering.items():
             if key == candidates[-1]:
-                n_clustering += value
+                N_CLUSTERING += value
 
         f_pagerank = pagerank(subgraph)
-        n_pagerank = 0
+        N_PAGERANK = 0
 
         for key, value in f_pagerank.items():
             if key == candidates[-1]:
-                n_pagerank += value
+                N_PAGERANK += value
 
         n_largest_clique_size = large_clique_size(G)
 
-        shortest_path_lengths = 0
-        mean_shortest_path_length = 0
+        SHORTEST_PATH_LENGTHS = 0
+        MEAN_SHORTEST_PATH_LENGTH = 0
         for shortest_paths in metas_df.loc[metas_df["idx"] == index]["shortest_paths"]:
             for shortest_path in shortest_paths:
-                shortest_path_lengths += len(shortest_path)
-            mean_shortest_path_length += int(
-                shortest_path_lengths / len(shortest_paths)
+                SHORTEST_PATH_LENGTHS += len(shortest_path)
+            MEAN_SHORTEST_PATH_LENGTH += int(
+                SHORTEST_PATH_LENGTHS / len(shortest_paths)
             )
 
         if candidates[-1] == "":
@@ -177,19 +180,19 @@ if __name__ == "__main__":
 
         iter_data = [
             index,
-            n_triangles,
+            N_TRIANGLES,
             n_nodes,
             n_edges,
-            n_katz_centrality,
-            n_pagerank,
+            N_KATZ_CENTRALITY,
+            N_PAGERANK,
             n_largest_clique_size,
-            shortest_path_lengths,
-            mean_shortest_path_length,
+            SHORTEST_PATH_LENGTHS,
+            MEAN_SHORTEST_PATH_LENGTH,
             site_link,
             outcoming,
             incoming,
-            n_eigenvector_centrality,
-            n_clustering,
+            N_EIGENVECTOR_CENTRALITY,
+            N_CLUSTERING,
         ]
         data.append(iter_data)
 
