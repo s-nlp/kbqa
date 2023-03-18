@@ -26,3 +26,4 @@ sentence_transformers
 captum==0.6.0
 torch-model-archiver==0.7.0
 torchserve==0.7.0
+black==22.3.0
