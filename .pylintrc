@@ -270,11 +270,7 @@ good-names=i,
            Run,
            df,
            f,
-<<<<<<< HEAD
-           lang_title2wikidataID,
-=======
            lang_title2wikidataID
->>>>>>> f05ffd290a842160b134ded9b19c9816801178c0
            _
 
 # Good variable names regexes, separated by a comma. If names match any regex,
