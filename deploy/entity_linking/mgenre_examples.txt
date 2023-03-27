@@ -1,0 +1,1 @@
+[START] Paris [END] is a capital of [START] France [END]

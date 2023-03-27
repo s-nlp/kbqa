@@ -1,0 +1,12 @@
+md5: 5a5173fc4943bf3aa28906f29b8c8032
+frozen: true
+deps:
+- path: ./
+  repo:
+    url: https://github.com/s-nlp/wikidata_rubq
+    rev_lock: 383991ebf0136afc3ea772e4a54f578b2b0b7465
+outs:
+- md5: 724081d57e8d329479ff93cce62324da.dir
+  size: 8036
+  nfiles: 5
+  path: wikidata_rubq

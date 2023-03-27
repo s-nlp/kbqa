@@ -1,0 +1,13 @@
+stages:
+  candidate_generation:
+    cmd: python3 seq2seq_dbs_answers_generation.py
+    deps:
+    - ./seq2seq_dbs_answers_generation.py
+    - /mnt/raid/data/kbqa/datasets/mintaka_one_hop/
+    - /mnt/raid/data/kbqa/seq2seq_runs/wdsq_tunned/google_t5-large-ssm/
+    - data/wdsq/
+    - data/wikidata_rubq/
+    params:
+    - params.yaml:
+    outs:
+    - data/candidates/

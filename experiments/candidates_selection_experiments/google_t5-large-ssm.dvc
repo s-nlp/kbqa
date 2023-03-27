@@ -1,0 +1,5 @@
+outs:
+- md5: 8dba64ce7d762b164d82c39d43ad78d1.dir
+  size: 44292646890
+  nfiles: 62
+  path: /mnt/raid/data/kbqa/seq2seq_runs/wdsq_tunned/google_t5-large-ssm/

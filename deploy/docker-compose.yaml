@@ -1,0 +1,78 @@
+version: "3.9"
+
+services:
+  candidate_selection:
+    build:
+      context: ../
+      dockerfile: ./deploy/candidate_selection/Dockerfile
+    networks:
+      - backend
+    deploy:
+      mode: replicas
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+
+  entity_linking:
+    build:
+      context: ./entity_linking/
+      dockerfile: Dockerfile
+    networks:
+      - backend
+    volumes:
+      - /home/salnikov/ner_model:/workspace/ner/
+    environment:
+      - NER_MODEL_PATH=/workspace/ner/
+    deploy:
+      mode: replicas
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+
+
+  candidate_generation:
+    build:
+      context: ./candidate_generation/
+      dockerfile: Dockerfile
+    networks:
+      - backend
+    volumes:
+      - /home/salnikov/nlp2_seq2seq_runs/:/workspace/runs/
+    environment:
+      - CANDIDATE_GENERATION_MODEL_PATH=/workspace/runs/mintaka_tunned/google_t5-large-ssm-nq/models/checkpoint-3500/
+      - CANDIDATE_GENERATION_TOKENIZER_PATH_OR_NAME=google/t5-large-ssm-nq
+    deploy:
+      mode: replicas
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+
+  tg_bot:
+    build:
+      context: ./telegram_bot
+      dockerfile: Dockerfile
+    environment:
+      - TELEGRAM_BOT_KEY=${TELEGRAM_BOT_KEY}
+      - CANDIDATE_GENERATION_URI=http://candidate_generation:7860
+      - ENTITY_LINKING_URI=http://entity_linking:7860
+      - CANDIDATE_SELECTION_URI=http://candidate_selection:7860
+    depends_on:
+      - candidate_generation
+      - entity_linking
+      - candidate_selection
+    volumes:
+      - ${PWD}/data/:/bot/data/
+    networks:
+      - backend
+    
+    
+
+networks:
+  backend:
+
+# volumes:
+#   models_storage:
+#     external: true
