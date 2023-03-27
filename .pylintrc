@@ -270,7 +270,11 @@ good-names=i,
            Run,
            df,
            f,
+<<<<<<< HEAD
            lang_title2wikidataID,
+=======
+           lang_title2wikidataID
+>>>>>>> f05ffd290a842160b134ded9b19c9816801178c0
            _
 
 # Good variable names regexes, separated by a comma. If names match any regex,
@@ -537,7 +541,11 @@ max-bool-expr=5
 max-branches=12
 
 # Maximum number of locals for function / method body.
+<<<<<<< HEAD
 max-locals=25
+=======
+max-locals=15
+>>>>>>> f05ffd290a842160b134ded9b19c9816801178c0
 
 # Maximum number of parents for a class (see R0901).
 max-parents=7

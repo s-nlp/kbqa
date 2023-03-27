@@ -19,3 +19,4 @@ RUN git clone https://github.com/facebookresearch/KILT.git && \
 
 RUN git clone https://github.com/MihailSalnikov/GENRE.git && \
     pip3 install ./GENRE
+
