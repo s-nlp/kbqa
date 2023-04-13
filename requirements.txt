@@ -24,10 +24,12 @@ gradio
 python-telegram-bot
 pydash
 jsonlines
-ujson
+ujson==5.7.0
 sentence_transformers
 captum==0.6.0
 torch-model-archiver==0.7.0
 torchserve==0.7.0
 black==22.3.0
-black[jupyter]
+joblib==1.2.0
+igraph==0.10.4
+pywikidata
