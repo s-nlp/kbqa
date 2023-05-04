@@ -1,4 +1,4 @@
-# pylint: disable=line-too-long,missing-class-docstring,invalid-name,redefined-builtin
+# pylint: disable=line-too-long,missing-class-docstring,invalid-name,redefined-builtin, consider-using-generator
 from collections import defaultdict
 from typing import List, Union, Optional, Tuple
 from functools import lru_cache
@@ -183,7 +183,7 @@ class QuestionToRankInstanceOf(_QuestionToRankBase):
             return [e for e, _ in answer_instance_of_count]
 
         sentence_embeddings = QuestionToRankInstanceOf._calculate_sent_scores(
-            (str(e.label) for e, _ in answer_instance_of_count)
+            tuple([str(e.label) for e, _ in answer_instance_of_count])
         )
         scores_collection = cosine_similarity(
             sentence_embeddings[:initial_number], sentence_embeddings[initial_number:]
@@ -216,11 +216,11 @@ class QuestionToRankInstanceOf(_QuestionToRankBase):
             selected_set = []
             for q_entity in self.question_entities:
                 if self.only_forward_one_hop:
-                    neighbors = q_entity.forward_one_hop_neighbors
+                    neighbors = q_entity.forward_one_hop_neighbours
                 else:
                     neighbors = (
-                        q_entity.forward_one_hop_neighbors
-                        + q_entity.backward_one_hop_neighbors
+                        q_entity.forward_one_hop_neighbours
+                        + q_entity.backward_one_hop_neighbours
                     )
 
                 for property, entity in neighbors:
@@ -237,7 +237,7 @@ class QuestionToRankInstanceOf(_QuestionToRankBase):
                             len(self.answer_instance_of) - instance_of_score
                         ) / len(self.answer_instance_of)
                     # ---
-                    if (property, entity) in q_entity.forward_one_hop_neighbors:
+                    if (property, entity) in q_entity.forward_one_hop_neighbours:
                         forward_one_hop_neighbors_score = 1
                     else:
                         forward_one_hop_neighbors_score = 0

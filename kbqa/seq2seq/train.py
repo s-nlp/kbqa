@@ -20,6 +20,7 @@ def train(
     logging_dir: str = "./runs/logs/model",
     save_total_limit: int = 5,
     num_train_epochs: int = 8,
+    max_steps: int = -1,
     per_device_train_batch_size: int = 1,
     per_device_eval_batch_size: int = 1,
     warmup_steps: int = 500,
@@ -42,6 +43,10 @@ def train(
         logging_dir (str): Path to directory for storing traning logs . Defaults to './runs/logs/model'
         save_total_limit (int, optional): Total limit for storing model's checkpoints. Defaults to 5.
         num_train_epochs (int, optional): Total number of traning epoches. Defaults to 8.
+        max_steps (int, optional, defaults to -1): If set to a positive number,
+            the total number of training steps to perform. Overrides num_train_epochs.
+            In case of using a finite iterable dataset the training may stop before reaching
+            the set number of steps when all data is exhausted
         per_device_train_batch_size (int, optional): train batch size per device. Defaults to 1.
         per_device_eval_batch_size (int, optional): eval batch size per device. Defaults to 1.
         warmup_steps (int, optional): warmup steps for traning. Defaults to 500.
@@ -73,6 +78,7 @@ def train(
         output_dir=output_dir,
         save_total_limit=save_total_limit,
         num_train_epochs=num_train_epochs,
+        max_steps=max_steps,
         per_device_train_batch_size=per_device_train_batch_size,
         per_device_eval_batch_size=per_device_eval_batch_size,
         warmup_steps=warmup_steps,
