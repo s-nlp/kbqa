@@ -16,7 +16,7 @@ memory = Memory(DEFAULT_CACHE_PATH, verbose=0)
 def request_to_wikidata(query, sparql_endpoint=SPARQL_ENDPOINT):
     params = {"format": "json", "query": query}
     headers = {
-        "Accept": "application/json",
+        "Accept": "application/sparql-results+json",
         "User-Agent": (
             "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) "
             "AppleWebKit/537.36 (KHTML, like Gecko) "

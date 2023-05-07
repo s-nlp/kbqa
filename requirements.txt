@@ -22,6 +22,9 @@ spacy
 mlflow
 gradio
 python-telegram-bot
+pydash
+jsonlines
+ujson
 sentence_transformers
 captum==0.6.0
 torch-model-archiver==0.7.0
