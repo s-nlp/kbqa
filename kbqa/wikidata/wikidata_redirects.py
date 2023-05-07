@@ -23,7 +23,9 @@ class WikidataRedirectsCache(WikidataBase):
 
         if nterm not in self.cache:
             redirects = self._request_dbpedia(nterm)
-            if "Problem communicating with the server" in redirects[0]:
+            if not redirects:
+                return "No results found"
+            elif "Problem communicating with the server" in redirects[0]:
                 return redirects
             else:
                 self.cache[nterm] = redirects
