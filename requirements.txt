@@ -31,3 +31,7 @@ torch-model-archiver==0.7.0
 torchserve==0.7.0
 black==22.3.0
 black[jupyter]
+xgboost
+seaborn
+gudhi
+giotto-tda

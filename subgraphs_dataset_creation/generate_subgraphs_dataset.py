@@ -60,13 +60,13 @@ parser.add_argument(
 # pylint: disable=line-too-long
 parser.add_argument(
     "--sqwd_jsonl_path",
-    default="/workspace/storage/sqwd_to_subgraphs_prepared_entities/sqwd_train_with_entity_linker.jsonl",
+    default="/workspace/storage/sqwd_to_subgraphs_prepared_entities/sqwd_train.jsonl",
     type=str,
 )
 
 parser.add_argument(
     "--save_dir",
-    default="./subgraphs_dataset/dataset_v3_TRAIN_entity_linker/",
+    default="./subgraphs_dataset/dataset_v3_TRAIN/",
     type=str,
 )
 
