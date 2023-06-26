@@ -2,8 +2,10 @@ import argparse
 import json
 import os
 import mlflow
+import wandb
 import torch
 from pathlib import Path
+from peft import LoraConfig, get_peft_model, TaskType
 from kbqa.config import SEQ2SEQ_AVAILABLE_HF_PRETRAINED_MODEL_NAMES
 from kbqa.seq2seq.eval import make_report
 from kbqa.seq2seq.train import train as train_seq2seq
@@ -37,6 +39,36 @@ parser.add_argument("--dataset_evaluation_split", default="test")
 parser.add_argument("--dataset_cache_dir", default="../datasets/")
 parser.add_argument("--save_dir", default="../runs")
 parser.add_argument("--run_name", default=None)
+parser.add_argument(
+    "--lora_on",
+    default=False,
+    type=lambda x: (str(x).lower() == "true"),
+    help="Using LoRA or not (True/False)",
+)
+parser.add_argument(
+    "--lora_r",
+    default=64,
+    type=int,
+    help="LoRA r (int)",
+)
+parser.add_argument(
+    "--lora_alpha",
+    default=16,
+    type=int,
+    help="LoRA Alpha (int)",
+)
+parser.add_argument(
+    "--lora_dropout",
+    default=0.05,
+    type=float,
+    help="LoRA dropout (float)",
+)
+parser.add_argument(
+    "--wandb_on",
+    default=False,
+    type=lambda x: (str(x).lower() == "true"),
+    help="Using WanDB or not (True/False)",
+)
 parser.add_argument(
     "--mlflow_experiment_name",
     default=None,
@@ -150,7 +182,25 @@ def train(args, model_dir, logging_dir):
             apply_redirects_augmentation=args.apply_redirects_augmentation,
         )
 
+    if args.lora_on:
+        peft_config = LoraConfig(
+            task_type=TaskType.SEQ_2_SEQ_LM,
+            r=args.lora_r,
+            lora_alpha=args.lora_alpha,
+            lora_dropout=args.lora_dropout,
+        )
+        model = get_peft_model(model, peft_config)
+
+    if args.wandb_on:
+        report_to = "wandb"
+    elif args.mlflow_experiment_name is not None:
+        report_to = "mlflow"
+    else:
+        report_to = "tensorboard"
+
     train_seq2seq(
+        run_name=args.run_name,
+        report_to=report_to,
         model=model,
         tokenizer=tokenizer,
         train_dataset=dataset["train"],
@@ -164,10 +214,13 @@ def train(args, model_dir, logging_dir):
         logging_steps=args.logging_steps,
         trainer_mode=args.trainer_mode,
     )
-    model.to("cpu")
 
-    with open(logging_dir / "args.json", "w", encoding=None) as file_handler:
-        json.dump(vars(args), file_handler)
+    if args.lora_on:
+        model = model.merge_and_unload()
+        model.save_pretrained(Path(model_dir) / "checkpoint-best")
+
+    if args.wandb_on:
+        wandb.log(vars(args))
 
 
 def evaluate(args, model_dir, normolized_model_name):
@@ -215,8 +268,9 @@ def evaluate(args, model_dir, normolized_model_name):
     )
 
     eval_report_dir = dump_eval(results_df, report, args, normolized_model_name)
-    mlflow.log_metrics(report)
-    mlflow.log_artifacts(eval_report_dir, "report")
+    if args.mlflow_experiment_name is not None:
+        mlflow.log_metrics(report)
+        mlflow.log_artifacts(eval_report_dir, "report")
     print(f"Report dumped to {eval_report_dir}")
 
 
@@ -234,7 +288,11 @@ if __name__ == "__main__":
     args = parser.parse_args()
     validate_args(args)
 
-    mlflow.set_tracking_uri(args.mlflow_tracking_uri)
+    if args.wandb_on:
+        os.environ["WANDB_PROJECT"] = "kgqa_seq2seq"
+
+    if args.mlflow_experiment_name is not None:
+        mlflow.set_tracking_uri(args.mlflow_tracking_uri)
 
     model_dir, logging_dir, normolized_model_name = get_model_logging_dirs(
         args.save_dir, args.model_name, args.run_name
@@ -243,22 +301,16 @@ if __name__ == "__main__":
 
     if args.mlflow_experiment_name is not None:
         mlflow_experiment_name = args.mlflow_experiment_name
-    else:
-        mlflow_experiment_name = f"seq2seq/{dataset_name}"
-
-    os.environ["HF_MLFLOW_LOG_ARTIFACTS"] = "True"
-
-    os.environ["MLFLOW_EXPERIMENT_NAME"] = mlflow_experiment_name
-    mlflow.set_experiment(mlflow_experiment_name)
-    mlflow.set_experiment_tag("normolized_model_name", normolized_model_name)
-
-    if args.mlflow_run_name is not None:
+        os.environ["HF_MLFLOW_LOG_ARTIFACTS"] = "True"
+        os.environ["MLFLOW_EXPERIMENT_NAME"] = mlflow_experiment_name
+        mlflow.set_experiment(mlflow_experiment_name)
+        mlflow.set_experiment_tag("normolized_model_name", normolized_model_name)
         mlflow.start_run(run_name=args.mlflow_run_name)
-
-    mlflow.log_params({"args/" + key: value for key, value in vars(args).items()})
+        mlflow.log_params({"args/" + key: value for key, value in vars(args).items()})
 
     if args.mode == "train":
-        mlflow.set_tag("trained_on", dataset_name)
+        if args.mlflow_experiment_name is not None:
+            mlflow.set_tag("trained_on", dataset_name)
         train(args, model_dir, logging_dir)
 
     elif args.mode == "eval":
@@ -266,14 +318,17 @@ if __name__ == "__main__":
             with open(Path(logging_dir) / "args.json", "r") as file_handler:
                 training_args = json.load(file_handler)
             training_dataset_name = Path(training_args["dataset_name"]).name
-            mlflow.set_tag("trained_on", training_dataset_name)
+            if args.mlflow_experiment_name is not None:
+                mlflow.set_tag("trained_on", training_dataset_name)
 
-        mlflow.set_tag("evaluated_on", dataset_name)
+        if args.mlflow_experiment_name is not None:
+            mlflow.set_tag("evaluated_on", dataset_name)
         evaluate(args, model_dir, normolized_model_name)
 
     elif args.mode == "train_eval":
-        mlflow.set_tag("trained_on", dataset_name)
-        mlflow.set_tag("evaluated_on", dataset_name)
+        if args.mlflow_experiment_name is not None:
+            mlflow.set_tag("trained_on", dataset_name)
+            mlflow.set_tag("evaluated_on", dataset_name)
         train(args, model_dir, logging_dir)
         evaluate(args, model_dir, normolized_model_name)
 
@@ -282,4 +337,8 @@ if __name__ == "__main__":
             f"Wrong mode argument passed: must be train or eval, passed {args.mode}"
         )
 
-    mlflow.end_run()
+    if args.mlflow_experiment_name is not None:
+        mlflow.end_run()
+
+    if args.wandb_on is True:
+        wandb.finish()

@@ -74,10 +74,11 @@ def predict_answers(
     return generated_decoded
 
 
-def compute_metrics(eval_preds, tokenizer):
+def compute_metrics(eval_preds, tokenizer, redirects_on=True):
 
     preds, labels = eval_preds
-    wiki_redirects = WikidataRedirectsCache()
+    preds = preds.cpu().detach()
+    label = labels.cpu().detach()
 
     # decoding the predictions and labels
     decoded_preds = tokenizer.batch_decode(preds, skip_special_tokens=True)
@@ -87,17 +88,26 @@ def compute_metrics(eval_preds, tokenizer):
     decoded_preds = [pred.strip() for pred in decoded_preds]
     decoded_labels = [[label.strip()] for label in decoded_labels]
 
-    redirect_labels = []
-    for label in decoded_labels:
+    if redirects_on is True:
+        wiki_redirects = WikidataRedirectsCache()
 
-        # getting the redirect for the current label
-        redirects = wiki_redirects.get_redirects(label)
-        redirect_labels.append[redirects]
+        redirect_labels = []
+        for label in decoded_labels:
 
-    # calculating bleu score (list('str') vs list(list('str')))
-    metric = evaluate.load("sacrebleu")
-    result = metric.compute(predictions=decoded_preds, references=redirect_labels)
-    return {"bleu": result["score"]}
+            # getting the redirect for the current label
+            redirects = wiki_redirects.get_redirects(label)
+            redirect_labels.append[redirects]
+
+        # calculating bleu score (list('str') vs list(list('str')))
+        metric = evaluate.load("sacrebleu")
+        result = metric.compute(predictions=decoded_preds, references=redirect_labels)
+        return {"bleu": result["score"]}
+    else:  # redirects_on is False
+        hit1 = 0
+        for idx, pred in enumerate(decoded_preds):
+            if pred in decoded_labels[idx]:
+                hit1 += 1
+        return {"Hit@1": hit1 / len(decoded_preds)}
 
 
 def make_report(

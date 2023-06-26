@@ -9,6 +9,8 @@ SEQ2SEQ_AVAILABLE_HF_PRETRAINED_MODEL_NAMES = [
     "t5-small",
     "t5-base",
     "t5-large",
+    "t5-3b",
+    "google/t5-xl-ssm-nq",
     "google/t5-large-ssm",
     "google/t5-large-ssm-nq",
     "google/t5-small-ssm-nq",
