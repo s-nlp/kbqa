@@ -1,4 +1,4 @@
-FROM huggingface/transformers-pytorch-gpu:4.22.0
+FROM huggingface/transformers-pytorch-gpu:4.29.2
 
 RUN apt update && \
     apt install -y git htop g++ && \

@@ -1,7 +1,7 @@
-from typing import Tuple
 import datasets
 from .redirect_trainer import Seq2SeqWikidataRedirectsTrainer
 from ..wikidata.wikidata_redirects import WikidataRedirectsCache
+
 
 from transformers import (
     PreTrainedModel,
@@ -12,13 +12,15 @@ from transformers import (
 
 
 def train(
+    run_name: str,
+    report_to: str,
     model: PreTrainedModel,
     tokenizer: PreTrainedTokenizer,
     train_dataset: datasets.Dataset,
     valid_dataset: datasets.Dataset,
     output_dir: str = "./runs/models/model",
     logging_dir: str = "./runs/logs/model",
-    save_total_limit: int = 5,
+    save_total_limit: int = 2,
     num_train_epochs: int = 8,
     max_steps: int = -1,
     per_device_train_batch_size: int = 1,
@@ -30,11 +32,15 @@ def train(
     logging_steps: int = 500,
     gradient_accumulation_steps: int = 8,
     trainer_mode: str = "default",
-) -> Tuple[Seq2SeqTrainer, PreTrainedModel, datasets.arrow_dataset.Dataset]:
+) -> Seq2SeqTrainer:
     """train seq2seq model for KBQA problem
     Work with HF dataset with object and question field (str)
 
     Args:
+        run_name: (str): Run name
+        report_to: (str): The list of integrations to report the results and logs to.
+            Supported platforms are "azure_ml", "comet_ml", "mlflow", "neptune", "tensorboard","clearml" and "wandb".
+            Use "all" to report to all integrations installed, "none" for no integrations.
         model: (PreTrainedModel): HF Model for training
         tokenizer: (PreTrainedTokenizer): HF Tokenizer for training (provided with model usually)
         train_dataset (datasets.Dataset): HF Dataset object for traning
@@ -75,8 +81,9 @@ def train(
         Seq2SeqTrainer: Trained after traning and validation
     """
     training_args = Seq2SeqTrainingArguments(
+        run_name=run_name,
+        report_to=report_to,
         output_dir=output_dir,
-        save_total_limit=save_total_limit,
         num_train_epochs=num_train_epochs,
         max_steps=max_steps,
         per_device_train_batch_size=per_device_train_batch_size,
@@ -87,6 +94,8 @@ def train(
         evaluation_strategy=evaluation_strategy,
         eval_steps=eval_steps,
         save_steps=eval_steps,
+        save_strategy="steps",
+        save_total_limit=save_total_limit,
         logging_steps=logging_steps,
         load_best_model_at_end=True,
         gradient_accumulation_steps=gradient_accumulation_steps,
@@ -99,6 +108,7 @@ def train(
             train_dataset=train_dataset,
             eval_dataset=valid_dataset,
             tokenizer=tokenizer,
+            # compute_metrics=lambda x: compute_metrics(x, tokenizer, False)
         )
     elif trainer_mode == "Seq2SeqWikidataRedirectsTrainer":
         redirect_cache = WikidataRedirectsCache()

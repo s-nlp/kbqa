@@ -7,12 +7,10 @@ from typing import Dict, Tuple
 
 import datasets
 from transformers import (
-    BartForConditionalGeneration,
-    BartTokenizer,
     PreTrainedModel,
     PreTrainedTokenizer,
-    T5ForConditionalGeneration,
-    T5Tokenizer,
+    AutoModelForSeq2SeqLM,
+    AutoTokenizer,
 )
 
 from ..config import SEQ2SEQ_AVAILABLE_HF_PRETRAINED_MODEL_NAMES
@@ -43,21 +41,9 @@ def load_model_and_tokenizer_by_name(
         logging.info(f"No checkpint, load public pretrained model {model_name}")
         model_path = model_name
 
-    if model_name in ["facebook/bart-base", "facebook/bart-large"]:
-        tokenizer = BartTokenizer.from_pretrained(model_name)
-        model = BartForConditionalGeneration.from_pretrained(model_path)
-    elif model_name in [
-        "t5-small",
-        "t5-base",
-        "t5-large",
-        "google/t5-small-ssm-nq",
-        "google/t5-large-ssm",
-        "google/t5-large-ssm-nq",
-        "google/flan-t5-small",
-        "google/flan-t5-large",
-    ]:
-        tokenizer = T5Tokenizer.from_pretrained(model_name)
-        model = T5ForConditionalGeneration.from_pretrained(model_path)
+    if model_name in SEQ2SEQ_AVAILABLE_HF_PRETRAINED_MODEL_NAMES:
+        tokenizer = AutoTokenizer.from_pretrained(model_name)
+        model = AutoModelForSeq2SeqLM.from_pretrained(model_path)
     else:
         raise ValueError(
             f"model_name must be one of {SEQ2SEQ_AVAILABLE_HF_PRETRAINED_MODEL_NAMES}, but passed {model_name}"
@@ -190,7 +176,7 @@ def load_kbqa_seq2seq_dataset(
         dataset_name,
         dataset_config_name,
         cache_dir=dataset_cache_dir,
-        ignore_verifications=True,
+        verification_mode="no_checks",
         split=split,
     )
     dataset = dataset.map(
@@ -229,7 +215,7 @@ def load_mintaka_seq2seq_dataset(
     dataset = datasets.load_dataset(
         dataset_name,
         dataset_config_name,
-        ignore_verifications=True,
+        verification_mode="no_checks",
         split=split,
     )
 
