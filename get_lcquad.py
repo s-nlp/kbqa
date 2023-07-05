@@ -1,5 +1,3 @@
-# pylint: disable-all
-
 """
 Script to prepare the lcquad2.0 dataset for seq2seq
 """
@@ -66,20 +64,20 @@ with open(args.json_file_path) as json_file:
         # Try to extract the answer value, handle the case if it's not present
         try:
             if "boolean" in question["answers"][0]:
-                answer = question["answers"][0]["boolean"]
-                label = None
+                ANSWER = question["answers"][0]["boolean"]
+                LABEL = None
             else:
-                answer = question["answers"][0]["results"]["bindings"][0]["uri"][
+                ANSWER = question["answers"][0]["results"]["bindings"][0]["uri"][
                     "value"
                 ]
                 entity_id = answer.split("/")[-1]
                 try:
-                    label = get_entity_label(entity_id)
+                    LABEL = get_entity_label(entity_id)
                 except:
-                    label = None
+                    LABEL = None
         except KeyError:
-            answer = None
-            label = None
+            ANSWER = None
+            LABEL = None
 
         # Append the parsed data to the list
         parsed_data.append(
@@ -91,15 +89,15 @@ with open(args.json_file_path) as json_file:
                 "Hybrid": hybrid,
                 "Question": question_string,
                 "SPARQL Query": sparql_query,
-                "Answer": answer,
-                "Label": label,
+                "Answer": ANSWER,
+                "Label": LABEL,
             }
         )
 
     # Create the DataFrame
     df = pd.DataFrame(parsed_data)
-    df.loc[df["Answer"] == "False", "Label"] = "False"
-    df.loc[df["Answer"] == "True", "Label"] = "True"
+    df.loc[df["Answer"] is False, "Label"] = "False"
+    df.loc[df["Answer"] is True, "Label"] = "True"
     df.dropna(subset=["Label"], inplace=True)
 
     df.to_csv(args.save_file_path, index=False)

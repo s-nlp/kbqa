@@ -14,6 +14,7 @@ from kbqa.seq2seq.utils import (
     get_model_logging_dirs,
     load_kbqa_seq2seq_dataset,
     load_mintaka_seq2seq_dataset,
+    load_lcquad2_seq2seq_dataset,
     load_model_and_tokenizer_by_name,
 )
 from kbqa.utils.train_eval import get_best_checkpoint_path
@@ -173,6 +174,14 @@ def train(args, model_dir, logging_dir):
             args.dataset_config_name,
             tokenizer,
         )
+
+    elif args.dataset_name == "s-nlp/lc_quad2":
+        dataset = load_lcquad2_seq2seq_dataset(
+            args.dataset_name,
+            tokenizer,
+            args.dataset_cache_dir,
+        )
+
     else:
         dataset = load_kbqa_seq2seq_dataset(
             args.dataset_name,
@@ -203,8 +212,17 @@ def train(args, model_dir, logging_dir):
         report_to=report_to,
         model=model,
         tokenizer=tokenizer,
-        train_dataset=dataset["train"],
-        valid_dataset=dataset["validation"],
+        train_dataset=dataset["train"]
+        if args.dataset_name != "s-nlp/lc_quad2"
+        else dataset,
+        valid_dataset=dataset["validation"]
+        if args.dataset_name != "s-nlp/lc_quad2"
+        else load_lcquad2_seq2seq_dataset(
+            args.dataset_name,
+            tokenizer,
+            args.dataset_cache_dir,
+            split="test",
+        ),
         output_dir=model_dir,
         logging_dir=logging_dir,
         num_train_epochs=args.num_train_epochs,
@@ -241,6 +259,19 @@ def evaluate(args, model_dir, normolized_model_name):
         logger.info(
             f"Eval: MINTAKA Dataset loaded, label_feature_name={label_feature_name}"
         )
+
+    elif args.dataset_name == "s-nlp/lc_quad2":
+        dataset = load_lcquad2_seq2seq_dataset(
+            args.dataset_name,
+            tokenizer,
+            args.dataset_cache_dir,
+            split="test",
+        )
+        label_feature_name = "Label"
+        logger.info(
+            f"Lcquad2.0 Eval: Dataset loaded, label_feature_name={label_feature_name}"
+        )
+
     else:
         dataset = load_kbqa_seq2seq_dataset(
             args.dataset_name,
