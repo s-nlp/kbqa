@@ -219,6 +219,54 @@ def load_kbqa_seq2seq_dataset(
     return dataset
 
 
+def load_lcquad2_seq2seq_dataset(
+    dataset_name: str,
+    tokenizer: PreTrainedTokenizer,
+    dataset_cache_dir: str = None,
+    split: str = "train",
+    use_convert_to_features: bool = True,
+) -> datasets.arrow_dataset.Dataset:
+    """load_lcquad2_seq2seq_dataset - helper for loading dataset for seq2seq lcquad2
+
+    Args:
+        dataset_name (str): Hugging Face dataset name
+        tokenizer (PreTrainedTokenizer): Tokenizer of seq2seq model
+        dataset_cache_dir (str, optional): Path to HF cache. Defaults to None.
+        split (str, optional): Dataset split to load ("train" or "test"). Defaults to "train".
+        use_convert_to_features (bool, optional): Convert dataset to features for seq2seq training/evaluation pipeline.
+        Defaults to True.
+
+    Returns:
+        datasets.arrow_dataset.Dataset: Prepared dataset for seq2seq
+    """
+
+    dataset = datasets.load_dataset(
+        dataset_name,
+        cache_dir=dataset_cache_dir,
+        split=split,
+    )
+
+    def preprocess_function(examples):
+        inputs = examples["Question"]
+        labels = examples["Label"]
+        inputs = tokenizer(inputs, truncation=True, padding="max_length")
+        labels = tokenizer(labels, truncation=True, padding="max_length")
+        return {
+            "input_ids": inputs.input_ids,
+            "attention_mask": inputs.attention_mask,
+            "labels": labels.input_ids,
+        }
+
+    dataset = dataset.map(preprocess_function, batched=True)
+
+    if use_convert_to_features:
+        dataset.set_format(
+            type="torch", columns=["input_ids", "attention_mask", "labels"]
+        )
+
+    return dataset
+
+
 def load_mintaka_seq2seq_dataset(
     dataset_name: str,
     dataset_config_name: str,
