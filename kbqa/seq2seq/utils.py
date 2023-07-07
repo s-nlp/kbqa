@@ -249,8 +249,8 @@ def load_lcquad2_seq2seq_dataset(
     def preprocess_function(examples):
         inputs = examples["Question"]
         labels = examples["Label"]
-        inputs = tokenizer(inputs, truncation=True, padding="max_length")
-        labels = tokenizer(labels, truncation=True, padding="max_length")
+        inputs = tokenizer(inputs, truncation=True, padding="max_length", max_length=64)
+        labels = tokenizer(labels, truncation=True, padding="max_length", max_length=64)
         return {
             "input_ids": inputs.input_ids,
             "attention_mask": inputs.attention_mask,
