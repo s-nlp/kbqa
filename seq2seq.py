@@ -176,10 +176,18 @@ def train(args, model_dir, logging_dir):
         )
 
     elif args.dataset_name == "s-nlp/lc_quad2":
-        dataset = load_lcquad2_seq2seq_dataset(
+        dataset = {}
+        dataset["train"] = load_lcquad2_seq2seq_dataset(
             args.dataset_name,
             tokenizer,
             args.dataset_cache_dir,
+        )
+
+        dataset["validation"] = load_lcquad2_seq2seq_dataset(
+            args.dataset_name,
+            tokenizer,
+            args.dataset_cache_dir,
+            split="test",
         )
 
     else:
@@ -212,17 +220,8 @@ def train(args, model_dir, logging_dir):
         report_to=report_to,
         model=model,
         tokenizer=tokenizer,
-        train_dataset=dataset["train"]
-        if args.dataset_name != "s-nlp/lc_quad2"
-        else dataset,
-        valid_dataset=dataset["validation"]
-        if args.dataset_name != "s-nlp/lc_quad2"
-        else load_lcquad2_seq2seq_dataset(
-            args.dataset_name,
-            tokenizer,
-            args.dataset_cache_dir,
-            split="test",
-        ),
+        train_dataset=dataset["train"],
+        valid_dataset=dataset["validation"],
         output_dir=model_dir,
         logging_dir=logging_dir,
         num_train_epochs=args.num_train_epochs,
