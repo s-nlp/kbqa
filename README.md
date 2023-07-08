@@ -8,6 +8,12 @@ docker build -f ./Dockerfile -t kbqa_dev ./
 docker run -v $PWD:/workspace/kbqa/ --network host -ti kbqa_dev
 ```
 
+### Run Actions locally
+For locally run actions (pylint & black check) [ACT](https://github.com/nektos/act) required. 
+```bash
+gh act -v
+```
+
 ### Prepare mGENRE
 
 Download pretrained model and required files
@@ -21,27 +27,52 @@ wget https://dl.fbaipublicfiles.com/GENRE/lang_title2wikidataID-normalized_with_
 wget http://dl.fbaipublicfiles.com/GENRE/titles_lang_all105_marisa_trie_with_redirect.pkl
 ```
 
-### Getting subgraphs dataset
+### Generating subgraphs dataset
+
+ To generate our subgraph dataset, the desired code will be stored in `./subgraphs_dataset_creation`. This part consists of: 
+ - parsing the Wikidata json dump to build our Wikidata graph via Igraph.
+ - load our Igraph representation of Wikidata and generate the subgraph dataset
+
+ #### Parsing Wikidata Json Dump 
+ To parse the wikidata json dump, run the `./subgraphs_dataset_creation/parse_wikidata_dump.py`
+
+ ```bash
+ python3 get_subgraphs_dataset.py --data_path /workspace/storage/latest-all.json.bz2 --save_path /workspace/storage/wikidata_igraph
+ ```
+ where the arguments:
+ - `data_path` refers to the path where the json dump is stored
+ - `save_path` refers to the path where we want to save the igraph triple triples representation
+
+ After running the above script, a `wikidata_triples.txt` file will be created within the saved path mentioned in the argument above. This triples text file is ready to be loaded via Igraph via:
+ ```python
+ # graph_path is where we stored wikidata_triples.txt
+ igraph_wikidata = Graph.Read_Ncol(
+             graph_path, names=True, directed=True, weights=True
+         )
+ ```
+ Moreover, since parsing the json dump takes a decent amount of time, checkpoints were implemented. Let's say we are currently parsing the dump into `/workspace/storage/wikidata_igraph` (`--save_path` argument). For some unfortunate reason, our process crashed. You can simply rerun `./subgraphs_dataset_creation/parse_wikidata_dump.py` and it will automatically continue on where the crashed happen.
 
 #### Running to get the dataset
-First of all, when running `get_subgraphs_dataset.py`, the command line arguments will be. 
-- The argument `--num_bad_candidates` is to indicate how many bad candidate answers are included in this dataset. 
-- The argument `--model_result_path` is to indicate the path of mGENRE output (`results.csv`). 
-- The argument `--lang_title_wikidata_id_path` is to indicate the path of `lang_title2wikidataID-normalized_with_redirect.pkl`
-- The argument `--marisa_trie_path` is to indicate the path of `titles_lang_all105_marisa_trie_with_redirect.pkl`
-- The argument `--pretrained_mgenre_weight_path` is to indicate the path of the mGENRE pretrained weights - `fairseq_multilingual_entity_disambiguation`
-- The argument `--batch_size` is to indicate the batch size of the questions of mGENRE output (`results.csv`). 
-- The argument `--edge_between_path` is to indicate whether or not the resulting subgraphs dataset will include immediate edges between each shortest paths. 
+After we have parsed the Wikidata dump and have our Igraph triples representation, we are ready for subgraphs dataset generation. In order to do so, please run `./subgraphs_dataset_creation/generate_subgraphs_dataset.py`.
 
 ```bash
 python3 get_subgraphs_dataset.py
 ```
+The following are the available arguments:
+ - `--num_bad_candidates` indicates how many bad candidate answers are included in this dataset. 
+ - `number_of_pathes` indicates how many shortest paths we want to save in our subgraph. For each question entity to answer candidate, we will receive back multiple shortest paths of length $n$. 
+ - `--model_result_path` indicates the path of mGENRE output (`results.csv`). 
+ - `--edge_between_path` indicates whether or not the resulting subgraphs dataset will include immediate edges between each shortest paths. 
+ - `--igraph_wikidata_path` indicates the path of where we parsed the above Wikidata json dump (`save_path` argument in the above section).
+ - `--sqwd_jsonl_path` indicates the path of the parsed jsonl file (that provides all questions' entities and candidates in both Wikidata entity and label format).
+ - `--save_dir` indicates the saving directory of our subgraphs dataset
 
-After running the above file, the data (`.pkl`) and the meta files (`.json`) will be in `/workspace/kbqa/subgraphs_dataset/dataset_v0`.
+ After running the above file, the data (`.pkl`) and the meta files (`.json`) will be in the file setup in `save_dir`.
 
 #### Dataset formattings:
 
-Each subgraphs and its meta file will be stored individually. The meta files will be stored in `meta_sgements` while the subgraphs files will be stored in `subgraphs_segments`. You can match the subgraph to its meta file by the `id`. For instance, the subgraph file `graph_id_0.pkl` will corresponds to `meta_id_0.json`. 
+
+Each subgraphs and its meta file will be stored individually. The meta files will be stored in `meta_sgements` while the subgraphs files will be stored in `subgraphs_segments`. You can match each question to its meta file by the `id`. Each subgraphs are stored under its question folder. For instance, the subgraph file `question_0` will corresponds to `meta_id_0.json`. Inside of `save_dir`, we will have the subgraphs corresponding to this question (the number of subgraphs depends on the `num_bad_candidates` argument above). 
 
 ### Pygraphviz
 
