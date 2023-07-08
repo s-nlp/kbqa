@@ -20,3 +20,6 @@ RUN git clone https://github.com/facebookresearch/KILT.git && \
 RUN git clone https://github.com/MihailSalnikov/GENRE.git && \
     pip3 install ./GENRE
 
+COPY ./ /workspace/kbqa
+RUN pip3 install -e /workspace/kbqa
+
