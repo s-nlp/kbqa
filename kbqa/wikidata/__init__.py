@@ -4,6 +4,4 @@ from .wikidata_property import WikidataProperty
 from .wikidata_redirects import WikidataRedirectsCache
 from .wikidata_shortest_path import WikidataShortestPathCache
 from .wikidata_subgraphs_retriever import SubgraphNodeType, SubgraphsRetriever
-from .wikidata_subgraphs_retriever_igraph import SubgraphsRetrieverIgraph
-from .wikidata_shortest_path_igraph import WikidataShortestPathIgraphCache
 from .utils import request_to_wikidata
