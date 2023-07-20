@@ -31,14 +31,14 @@ parse.add_argument(
 )
 parse.add_argument(
     "--subgraphs_dataset_prepared_entities_jsonl_path",
-    default="/workspace/storage/mintaka_seq2seq/t5-xl-ssm/test/mintaka_test.jsonl",
+    default="/workspace/storage/mintaka_seq2seq/t5-xl-ssm/train/mintaka_train.jsonl",
     type=str,
     help="Path to file with prepared entities with questions from dataset)",
 )
 parse.add_argument(
     "--n_jobs",
     type=int,
-    default=1,
+    default=32,
     help="Number of parallel process for ssp. ATTENTION: Each process require ~60-80Gb RAM",
 )
 parse.add_argument(
@@ -193,27 +193,18 @@ def read_wd_graph(wd_graph_path: str) -> ig.Graph:
 
 
 def find_subgraph_and_transform_to_json(
-    wd_graph_path: str, task_q: JoinableQueue, results_q: JoinableQueue
+    wd_graph: ig.Graph, task_q: JoinableQueue, results_q: JoinableQueue
 ):
     """main function/proccess to extract subgraph and write to jsonl
 
     Args:
-        wd_graph_path (str): triples txt file path
+        wd_graph_path (str): wikidata kg with igraph
         task_q (JoinableQueue): task queue
         results_q (JoinableQueue): result queue
     """
-    proc_worker_header = f"{BColors.OKGREEN}[Process Worker]{BColors.ENDC}"
-    print(f"[{now()}]{proc_worker_header}[{os.getpid()}] Start loading WD Graph")
-    print(
-        f"[{now()}]{proc_worker_header}[{os.getpid()}] Current process memory (Gb)",
-        psutil.Process(os.getpid()).memory_info().rss / (1024.0**3),
-    )
-    wd_graph = read_wd_graph(wd_graph_path)
+
     wd_graph.get_shortest_paths = memory.cache(wd_graph.get_shortest_paths)
-    print(
-        f"[{now()}]{proc_worker_header}[{os.getpid()}]{BColors.OKGREEN} \
-            WD Graph loaded{BColors.ENDC}"
-    )
+
     print(
         f"[{now()}]{proc_worker_header}[{os.getpid()}] Current process memory (Gb)",
         psutil.Process(os.getpid()).memory_info().rss / (1024.0**3),
@@ -249,7 +240,7 @@ def find_subgraph_and_transform_to_json(
             task_queue.task_done()
             print(
                 f"[{now()}]{proc_worker_header}[{os.getpid()}] \
-                SSP task complite ({time.time() - start_time}s)"
+                SSP task completed ({time.time() - start_time}s)"
             )
 
 
@@ -257,6 +248,15 @@ if __name__ == "__main__":
     args = parse.parse_args()
 
     Path(args.save_jsonl_path).parents[0].mkdir(parents=True, exist_ok=True)
+
+    # loading in our graph
+    proc_worker_header = f"{BColors.OKGREEN}[Process Worker]{BColors.ENDC}"
+    print(f"[{now()}]] Start loading WD Graph")
+    parsed_wd_graph = read_wd_graph(args.igraph_wikidata_path)
+    print(
+        f"[{now()}]]{BColors.OKGREEN} \
+            WD Graph loaded{BColors.ENDC}"
+    )
 
     queue_max_size = int(args.n_jobs * 8)
     results_queue = JoinableQueue(maxsize=queue_max_size * 2)
@@ -272,7 +272,7 @@ if __name__ == "__main__":
     for _ in range(args.n_jobs):
         p = Process(
             target=find_subgraph_and_transform_to_json,
-            args=[args.igraph_wikidata_path, task_queue, results_queue],
+            args=[parsed_wd_graph, task_queue, results_queue],
             daemon=True,
         )
         p.start()
