@@ -53,26 +53,26 @@ wget http://dl.fbaipublicfiles.com/GENRE/titles_lang_all105_marisa_trie_with_red
  Moreover, since parsing the json dump takes a decent amount of time, checkpoints were implemented. Let's say we are currently parsing the dump into `/workspace/storage/wikidata_igraph` (`--save_path` argument). For some unfortunate reason, our process crashed. You can simply rerun `./subgraphs_dataset_creation/parse_wikidata_dump.py` and it will automatically continue on where the crashed happen.
 
 #### Running to get the dataset
-After we have parsed the Wikidata dump and have our Igraph triples representation, we are ready for subgraphs dataset generation. In order to do so, please run `./subgraphs_dataset_creation/generate_subgraphs_dataset.py`.
+After we have parsed the Wikidata dump and have our Igraph triples representation, we are ready for subgraphs dataset generation. In order to do so, please run `./subgraphs_dataset_creation/mining_subgraphs_dataset_processes.py`. This is also a time consuming process, thus we will utilize multi-processing.
 
 ```bash
-python3 get_subgraphs_dataset.py
+python3 mining_subgraphs_dataset_processes.py
 ```
 The following are the available arguments:
- - `--num_bad_candidates` indicates how many bad candidate answers are included in this dataset. 
- - `number_of_pathes` indicates how many shortest paths we want to save in our subgraph. For each question entity to answer candidate, we will receive back multiple shortest paths of length $n$. 
- - `--model_result_path` indicates the path of mGENRE output (`results.csv`). 
- - `--edge_between_path` indicates whether or not the resulting subgraphs dataset will include immediate edges between each shortest paths. 
- - `--igraph_wikidata_path` indicates the path of where we parsed the above Wikidata json dump (`save_path` argument in the above section).
- - `--sqwd_jsonl_path` indicates the path of the parsed jsonl file (that provides all questions' entities and candidates in both Wikidata entity and label format).
- - `--save_dir` indicates the saving directory of our subgraphs dataset
+ - `--save_jsonl_path` indicates the path of the final resulting `jsonl` file (with our subgraphs)
+ - `--igraph_wikidata_path` indicates the path of the file with our Igraph triples representation
+ - `--subgraphs_dataset_prepared_entities_jsonl_path` indicates the path of the `jsonl` file representation of our `results.csv` (which include the answer candidates of the seq2seq run)
+ - `--n_jobs` indicates how many jobs for our multi-processing scheme. **ATTENTION**: Each process require ~60-80Gb RAM.  
+ - `--skip_lines` indicates the number of lines for skip in prepared_entities_jsonl file (from `--subgraphs_dataset_prepared_entities_jsonl_path`)
 
- After running the above file, the data (`.pkl`) and the meta files (`.json`) will be in the file setup in `save_dir`.
+ After running the above file, the final data will be a `jsonl` file in the path `--save_jsonl_path`
 
 #### Dataset formattings:
 
-
-Each subgraphs and its meta file will be stored individually. The meta files will be stored in `meta_sgements` while the subgraphs files will be stored in `subgraphs_segments`. You can match each question to its meta file by the `id`. Each subgraphs are stored under its question folder. For instance, the subgraph file `question_0` will corresponds to `meta_id_0.json`. Inside of `save_dir`, we will have the subgraphs corresponding to this question (the number of subgraphs depends on the `num_bad_candidates` argument above). 
+Each entry in the final `jsonl` file will represent one question-answer pair and its corresponding subgraph. One sample entry can be seen below:
+```python
+{"id":"fae46b21","question":"What man was a famous American author and also a steamboat pilot on the Mississippi River?","answerEntity":["Q893594"],"questionEntity":["Q1497","Q846570"],"groundTruthAnswerEntity":["Q7245"],"complexityType":"intersection","graph":{"directed":true,"multigraph":false,"graph":{},"nodes":[{"type":"INTERNAL","name_":"Q30","id":0},{"type":"QUESTIONS_ENTITY","name_":"Q1497","id":1},{"type":"QUESTIONS_ENTITY","name_":"Q846570","id":2},{"type":"ANSWER_CANDIDATE_ENTITY","name_":"Q893594","id":3}],"links":[{"name_":"P17","source":0,"target":0},{"name_":"P17","source":1,"target":0},{"name_":"P17","source":2,"target":0},{"name_":"P527","source":2,"target":3},{"name_":"P17","source":3,"target":0},{"name_":"P279","source":3,"target":2}]}}
+```
 
 ### Pygraphviz
 
