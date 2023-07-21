@@ -18,7 +18,7 @@ from transformers import (
     TrainingArguments,
 )
 
-from data_utils import SequenceDataset, data_df_convert, read_jsonl_to_pandas
+from data_utils import SequenceDataset, data_df_convert
 
 
 torch.manual_seed(8)
@@ -140,13 +140,9 @@ def compute_metrics(eval_pred, classification_threshold):
 
 
 def main(args):
-    train_df = read_jsonl_to_pandas(args.train_data_path)
-    valid_df = read_jsonl_to_pandas(args.valid_data_path)
-    test_df = read_jsonl_to_pandas(args.test_data_path)
-
-    train_df = data_df_convert(train_df)
-    valid_df = data_df_convert(valid_df)
-    test_df = data_df_convert(test_df)
+    train_df = pd.read_json(args.train_data_path, lines=True)
+    valid_df = pd.read_json(args.valid_data_path, lines=True)
+    test_df = pd.read_json(args.test_data_path, lines=True)
 
     tokenizer = AutoTokenizer.from_pretrained(args.model_name)
     model = AutoModelForSequenceClassification.from_pretrained(
@@ -157,6 +153,10 @@ def main(args):
     tokenizer.add_special_tokens(
         {"additional_special_tokens": ["[unused1]", "[unused2]"]}
     )
+
+    train_df = data_df_convert(train_df, sep_token=tokenizer.sep_token)
+    valid_df = data_df_convert(valid_df, sep_token=tokenizer.sep_token)
+    test_df = data_df_convert(test_df, sep_token=tokenizer.sep_token)
 
     if args.fit_on_train_and_val:
         train_df = pd.concat([train_df, valid_df])
@@ -174,7 +174,8 @@ def main(args):
         weight_decay=0.01,
         logging_dir=Path(args.output_path) / args.run_name / "logs",
         load_best_model_at_end=True,
-        metric_for_best_model="hyperml/balanced_accuracy",
+        metric_for_best_model="balanced_accuracy",
+        greater_is_better=True,
         logging_steps=500,
         save_steps=500,
         evaluation_strategy="steps",
@@ -205,6 +206,8 @@ def main(args):
     tokenizer.save_pretrained(checkpoint_best_path)
 
     print("Model dumbed to ", checkpoint_best_path)
+
+    print("\nLast one evaluation:\n\n", trainer.evaluate())
 
 
 if __name__ == "__main__":

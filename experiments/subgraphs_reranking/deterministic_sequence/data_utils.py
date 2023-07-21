@@ -2,14 +2,7 @@ import ujson
 import networkx as nx
 import torch
 import pandas as pd
-
-
-def read_jsonl_to_pandas(data_path: str) -> pd.DataFrame:
-    data = []
-    with open(data_path, "r", encoding="utf-8") as f:
-        for line in f:
-            data.append(ujson.loads(line))
-    return pd.DataFrame(data)
+from ast import literal_eval
 
 
 def get_node_names(
@@ -47,19 +40,22 @@ def graph_to_sequence(subgraph, node_names):
         from_node = node_names[i]  # from node (node i)
         for j, edge_info in enumerate(row):
             to_node = node_names[j]
-            if edge_info == 0:  # no endge from_node -> to_node
-                # sequence.extend([from_node, "None", to_node])
-                pass
-            else:
-                sequence.extend([from_node, edge_info, to_node])
+            sequence.extend([from_node, edge_info, to_node])
     sequence = ",".join(str(node) for node in sequence)
     return sequence
+
+
+def try_literal_eval(s):
+    try:
+        return literal_eval(s)
+    except ValueError:
+        return s
 
 
 def linearize_graph(
     graph, candidate_start_token="[unused1]", candidate_end_token="[unused2]"
 ):
-    graph_obj = nx.readwrite.json_graph.node_link_graph(graph)
+    graph_obj = nx.readwrite.json_graph.node_link_graph(try_literal_eval(graph))
     try:
         graph_node_names = get_node_names(
             graph_obj,
@@ -77,13 +73,17 @@ def data_df_convert(
     df,
     candidate_start_token="[unused1]",
     candidate_end_token="[unused2]",
+    sep_token="[SEP]",
 ):
     # Filter all graphs without ANSWER_CANDIDATE_ENTITY
     df = df[df["graph"].apply(lambda x: "ANSWER_CANDIDATE_ENTITY" in str(x))]
 
     # Linearize graphs
-    df.loc[:, "graph_sequence"] = df["graph"].apply(
-        lambda graph: linearize_graph(graph, candidate_start_token, candidate_end_token)
+    df.loc[:, "graph_sequence"] = df.apply(
+        lambda row: row["question"]
+        + sep_token
+        + linearize_graph(row["graph"], candidate_start_token, candidate_end_token),
+        axis=1,
     )
     df = df.dropna(subset=["graph_sequence"])
 
