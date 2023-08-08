@@ -69,23 +69,47 @@ def linearize_graph(
         return None
 
 
+def prepare_data_without_linearize_graph(row, sep_token):
+    answer_labels = [
+        node["label"]
+        for node in row["graph"]["nodes"]
+        if node["type"] == "ANSWER_CANDIDATE_ENTITY"
+    ]
+    if len(answer_labels) == 0:
+        return None
+    elif answer_labels[0] is None:
+        return None
+    return row["question"] + sep_token + " ".join(answer_labels)
+
+
 def data_df_convert(
     df,
     candidate_start_token="[unused1]",
     candidate_end_token="[unused2]",
     sep_token="[SEP]",
+    linearization=True,
 ):
     # Filter all graphs without ANSWER_CANDIDATE_ENTITY
     df = df[df["graph"].apply(lambda x: "ANSWER_CANDIDATE_ENTITY" in str(x))]
 
-    # Linearize graphs
-    df.loc[:, "graph_sequence"] = df.apply(
-        lambda row: row["question"]
-        + sep_token
-        + linearize_graph(row["graph"], candidate_start_token, candidate_end_token),
-        axis=1,
-    )
-    df = df.dropna(subset=["graph_sequence"])
+    if linearization is True:
+        # Linearize graphs
+        df.loc[:, "graph_sequence"] = df.apply(
+            lambda row: linearize_graph(
+                row["graph"], candidate_start_token, candidate_end_token
+            ),
+            axis=1,
+        )
+        df = df.dropna(subset=["graph_sequence"])
+        df["graph_sequence"] = df.apply(
+            lambda row: row["question"] + sep_token + row["graph_sequence"],
+            axis=1,
+        )
+    else:
+        df.loc[:, "graph_sequence"] = df.apply(
+            lambda row: prepare_data_without_linearize_graph(row, sep_token), axis=1
+        )
+        df = df.dropna(subset=["graph_sequence"])
 
     # Preapre label (correct or not answer)
     # fmt: off
