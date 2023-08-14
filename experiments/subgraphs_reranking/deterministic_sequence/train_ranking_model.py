@@ -113,6 +113,18 @@ parse.add_argument(
     type=int,
     default=6,
 )
+parse.add_argument(
+    "--do_highlighting",
+    type=lambda x: (str(x).lower() == "true"),
+    default=True,
+    help="True/False. If True, add highliting tokens for candidate in linearized graph",
+)
+parse.add_argument(
+    "--do_linearization",
+    type=lambda x: (str(x).lower() == "true"),
+    default=True,
+    help='True/False. If False, "question + [SEP] + candiadte label" will used as a input for ranker model',
+)
 
 
 def create_sampler(target):
@@ -150,13 +162,37 @@ def main(args):
         num_labels=1,
     )
 
-    tokenizer.add_special_tokens(
-        {"additional_special_tokens": ["[unused1]", "[unused2]"]}
-    )
+    if args.do_highlighting:
+        candidate_start_token = "[unused1]"
+        candidate_end_token = "[unused2]"
+        tokenizer.add_special_tokens(
+            {"additional_special_tokens": ["[unused1]", "[unused2]"]}
+        )
+    else:
+        candidate_start_token = ""
+        candidate_end_token = ""
 
-    train_df = data_df_convert(train_df, sep_token=tokenizer.sep_token)
-    valid_df = data_df_convert(valid_df, sep_token=tokenizer.sep_token)
-    test_df = data_df_convert(test_df, sep_token=tokenizer.sep_token)
+    train_df = data_df_convert(
+        train_df,
+        sep_token=tokenizer.sep_token,
+        candidate_start_token=candidate_start_token,
+        candidate_end_token=candidate_end_token,
+        linearization=args.do_linearization,
+    )
+    valid_df = data_df_convert(
+        valid_df,
+        sep_token=tokenizer.sep_token,
+        candidate_start_token=candidate_start_token,
+        candidate_end_token=candidate_end_token,
+        linearization=args.do_linearization,
+    )
+    test_df = data_df_convert(
+        test_df,
+        sep_token=tokenizer.sep_token,
+        candidate_start_token=candidate_start_token,
+        candidate_end_token=candidate_end_token,
+        linearization=args.do_linearization,
+    )
 
     if args.fit_on_train_and_val:
         train_df = pd.concat([train_df, valid_df])
@@ -215,5 +251,10 @@ if __name__ == "__main__":
 
     if args.wandb_on:
         os.environ["WANDB_NAME"] = args.run_name
+
+    if args.do_linearization is False and args.do_highlighting is True:
+        raise ValueError(
+            "It is not possible to use do_highlighting and not to use do_linearization"
+        )
 
     main(args)
