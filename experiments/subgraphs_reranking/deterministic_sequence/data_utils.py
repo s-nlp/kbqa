@@ -1,8 +1,7 @@
-import ujson
+""" data utils function for sequences reranking """
+from ast import literal_eval
 import networkx as nx
 import torch
-import pandas as pd
-from ast import literal_eval
 
 
 def get_node_names(
@@ -10,20 +9,20 @@ def get_node_names(
     candidate_start_token="[unused1]",
     candidate_end_token="[unused2]",
 ):
+    """get nodes name of the subgraph, pad candidates with token"""
     node_names = [subgraph.nodes[node]["label"] for node in subgraph.nodes()]
     node_type = [subgraph.nodes[node]["type"] for node in subgraph.nodes()]
 
-    if "ANSWER_CANDIDATE_ENTITY" in node_type:
-        candidate_idx = node_type.index("ANSWER_CANDIDATE_ENTITY")
-        node_names[
-            candidate_idx
-        ] = f"{candidate_start_token}{node_names[candidate_idx]}{candidate_end_token}"
-    else:
-        return None
+    candidate_idx = node_type.index("ANSWER_CANDIDATE_ENTITY")
+    node_names[
+        candidate_idx
+    ] = f"{candidate_start_token}{node_names[candidate_idx]}{candidate_end_token}"
+
     return node_names
 
 
 def graph_to_sequence(subgraph, node_names):
+    """convert graph to sequence"""
     # getting adjency matrix and weight info
     adj_matrix = nx.adjacency_matrix(subgraph).todense().tolist()
     edge_data = subgraph.edges.data()
@@ -45,90 +44,68 @@ def graph_to_sequence(subgraph, node_names):
     return sequence
 
 
-def try_literal_eval(s):
+def try_literal_eval(str_dict):
+    """turn str dict into dict type"""
     try:
-        return literal_eval(s)
+        return literal_eval(str_dict)
     except ValueError:
-        return s
+        return str_dict
 
 
-def linearize_graph(
-    graph, candidate_start_token="[unused1]", candidate_end_token="[unused2]"
+def get_sequences(
+    dataframe, tokenizer, candidate_start_token, candidate_end_token, context=True
 ):
-    graph_obj = nx.readwrite.json_graph.node_link_graph(try_literal_eval(graph))
-    try:
-        graph_node_names = get_node_names(
-            graph_obj,
-            candidate_start_token=candidate_start_token,
-            candidate_end_token=candidate_end_token,
-        )
-        return graph_to_sequence(graph_obj, graph_node_names)
-    except KeyError:
-        return None
-    except nx.NetworkXError:
-        return None
+    """get the sequences"""
+    questions = list(dataframe["question"])
+    graphs = list(dataframe["graph"])
+    graph_seq = []
 
+    for question, graph in zip(questions, graphs):
+        graph_obj = nx.readwrite.json_graph.node_link_graph(try_literal_eval(graph))
+        try:
+            graph_node_names = get_node_names(
+                graph_obj, candidate_start_token, candidate_end_token
+            )
+            curr_seq = graph_to_sequence(graph_obj, graph_node_names)
+            if context:
+                curr_seq = f"{question}{tokenizer.sep_token}{curr_seq}"
+        except KeyError:
+            curr_seq = None
+        except nx.NetworkXError:
+            curr_seq = None
+        graph_seq.append(curr_seq)
 
-def prepare_data_without_linearize_graph(row, sep_token):
-    answer_labels = [
-        node["label"]
-        for node in row["graph"]["nodes"]
-        if node["type"] == "ANSWER_CANDIDATE_ENTITY"
-    ]
-    if len(answer_labels) == 0:
-        return None
-    elif answer_labels[0] is None:
-        return None
-    return row["question"] + sep_token + " ".join(answer_labels)
+    return graph_seq
 
 
 def data_df_convert(
-    df,
-    candidate_start_token="[unused1]",
-    candidate_end_token="[unused2]",
-    sep_token="[SEP]",
-    linearization=True,
+    dataframe, tokenizer, candidate_start_token, candidate_end_token, context
 ):
+    """given the df, add the sequences and remove unnecessary info"""
     # Filter all graphs without ANSWER_CANDIDATE_ENTITY
-    df = df[df["graph"].apply(lambda x: "ANSWER_CANDIDATE_ENTITY" in str(x))]
+    dataframe = dataframe[
+        dataframe["graph"].apply(lambda x: "ANSWER_CANDIDATE_ENTITY" in str(x))
+    ]
 
-    if linearization is True:
-        # Linearize graphs
-        df.loc[:, "graph_sequence"] = df.apply(
-            lambda row: linearize_graph(
-                row["graph"], candidate_start_token, candidate_end_token
-            ),
-            axis=1,
-        )
-        df = df.dropna(subset=["graph_sequence"])
-        df["graph_sequence"] = df.apply(
-            lambda row: row["question"] + sep_token + row["graph_sequence"],
-            axis=1,
-        )
-    else:
-        df.loc[:, "graph_sequence"] = df.apply(
-            lambda row: prepare_data_without_linearize_graph(row, sep_token), axis=1
-        )
-        df = df.dropna(subset=["graph_sequence"])
-
-    # Preapre label (correct or not answer)
-    # fmt: off
-    df["correct"] = df.apply(
-        lambda row: len(set(row["answerEntity"]).intersection(row["groundTruthAnswerEntity"])) > 0,
-        axis=1,
+    # get the sequences
+    df_sequences = get_sequences(
+        dataframe, tokenizer, candidate_start_token, candidate_end_token, context
     )
-    # fmt: on
+    dataframe["graph_sequence"] = df_sequences
+    dataframe = dataframe.dropna(subset=["graph_sequence"])  # remove faulty seqs
 
-    return df
+    return dataframe
 
 
 class SequenceDataset(torch.utils.data.Dataset):
-    def __init__(self, df, tokenizer):
-        self.df = df
+    """Dataset class for sequences"""
+
+    def __init__(self, dataframe, tokenizer):
+        self.dataframe = dataframe
         self.tokenizer = tokenizer
 
     def __getitem__(self, idx):
-        row = self.df.iloc[idx]
+        row = self.dataframe.iloc[idx]
         item = self.tokenizer(
             row["graph_sequence"],
             truncation=True,
@@ -138,8 +115,10 @@ class SequenceDataset(torch.utils.data.Dataset):
         )
         item["input_ids"] = item["input_ids"].view(-1)
         item["attention_mask"] = item["attention_mask"].view(-1)
-        item["labels"] = torch.tensor(row["correct"], dtype=torch.float)
+        item["labels"] = torch.tensor(  # pylint: disable=no-member
+            row["correct"], dtype=torch.float  # pylint: disable=no-member
+        )
         return item
 
     def __len__(self):
-        return self.df.index.size
+        return self.dataframe.index.size
