@@ -8,7 +8,6 @@ from pathlib import Path
 
 import evaluate
 import numpy as np
-import pandas as pd
 import torch
 from torch.utils.data.sampler import WeightedRandomSampler
 from transformers import (
@@ -17,6 +16,7 @@ from transformers import (
     Trainer,
     TrainingArguments,
 )
+from datasets import load_dataset
 
 from data_utils import SequenceDataset, data_df_convert
 
@@ -42,37 +42,19 @@ parse = argparse.ArgumentParser()
 parse.add_argument(
     "run_name",
     type=str,
-    help="run_name - name for folder that will be created in output_path for storing model. Also used for wandb",
+    help="folder name inside output_path for storing model. Also used for wandb",
 )
 parse.add_argument(
-    "train_data_path",
+    "--data_path",
     type=str,
+    default="hle2000/Mintaka_Subgraphs_T5_xl_ssm",
     help="Path to train JSONL file",
-)
-
-parse.add_argument(
-    "valid_data_path",
-    type=str,
-    help="Path to valid JSONL file",
-)
-
-parse.add_argument(
-    "test_data_path",
-    type=str,
-    help="Path to test JSONL file",
 )
 
 parse.add_argument(
     "--output_path",
     type=str,
-    default="/mnt/storage/QA_System_Project/subgrraphs_reranking_runs/",
-)
-
-parse.add_argument(
-    "--fit_on_train_and_val",
-    default=True,
-    type=lambda x: (str(x).lower() == "true"),
-    help="If True, train and valid data will be used for fit model. Default True.",
+    default="./subgraphs_reranking_runs/",
 )
 
 parse.add_argument(
@@ -99,13 +81,13 @@ parse.add_argument(
 parse.add_argument(
     "--per_device_train_batch_size",
     type=int,
-    default=32,
+    default=16,
 )
 
 parse.add_argument(
     "--per_device_eval_batch_size",
     type=int,
-    default=64,
+    default=32,
 )
 
 parse.add_argument(
@@ -117,30 +99,18 @@ parse.add_argument(
     "--do_highlighting",
     type=lambda x: (str(x).lower() == "true"),
     default=True,
-    help="True/False. If True, add highliting tokens for candidate in linearized graph",
+    help="If True, add highliting tokens for candidate in linearized graph",
 )
 parse.add_argument(
-    "--do_linearization",
+    "--do_context",
     type=lambda x: (str(x).lower() == "true"),
     default=True,
-    help='True/False. If False, "question + [SEP] + candiadte label" will used as a input for ranker model',
+    help=' If False, "question + [SEP] + candiadte label" will used as a input for ranker model',
 )
-
-
-def create_sampler(target):
-    class_sample_count = np.array(
-        [len(np.where(target == t)[0]) for t in np.unique(target)]
-    )
-    weight = 1.0 / class_sample_count
-    samples_weight = np.array([weight[t] for t in target])
-
-    samples_weight = torch.from_numpy(samples_weight)
-    sampler = WeightedRandomSampler(samples_weight, len(samples_weight))
-
-    return sampler
 
 
 def compute_metrics(eval_pred, classification_threshold):
+    """custom metrics for training"""
     predictions, labels = eval_pred
     results = METRIC_REGRESSION.compute(predictions=predictions, references=labels)
 
@@ -151,10 +121,51 @@ def compute_metrics(eval_pred, classification_threshold):
     return results
 
 
-def main(args):
-    train_df = pd.read_json(args.train_data_path, lines=True)
-    valid_df = pd.read_json(args.valid_data_path, lines=True)
-    test_df = pd.read_json(args.test_data_path, lines=True)
+class CustomTrainer(Trainer):
+    """custom trainer with sampler"""
+
+    def get_labels(self):
+        """get labels from train dataset"""
+        labels = []
+        for i in self.train_dataset:
+            labels.append(int(i["labels"].cpu().detach().numpy()))
+        return labels
+
+    def _get_train_sampler(self) -> torch.utils.data.Sampler:
+        """create our custom sampler"""
+        labels = self.get_labels()
+        return self.create_sampler(labels)
+
+    def create_sampler(self, target):
+        """weighted random sampler"""
+        class_sample_count = np.array(
+            [len(np.where(target == t)[0]) for t in np.unique(target)]
+        )
+        weight = 1.0 / class_sample_count
+        samples_weight = np.array([weight[t] for t in target])
+
+        samples_weight = torch.from_numpy(samples_weight)  # pylint: disable=no-member
+        samples_weight = samples_weight.double()
+        sampler = WeightedRandomSampler(samples_weight, len(samples_weight))
+
+        return sampler
+
+
+if __name__ == "__main__":
+    args = parse.parse_args()
+
+    if args.wandb_on:
+        os.environ["WANDB_NAME"] = args.run_name
+
+    if args.do_context is False and args.do_highlighting is True:
+        raise ValueError(
+            "It is not possible to use do_highlighting and not to use do_context"
+        )
+    Path(args.output_path).mkdir(parents=True, exist_ok=True)
+
+    subgraphs_dataset = load_dataset(args.data_path)
+    train_df = subgraphs_dataset["train"].to_pandas()
+    test_df = subgraphs_dataset["test"].to_pandas()
 
     tokenizer = AutoTokenizer.from_pretrained(args.model_name)
     model = AutoModelForSequenceClassification.from_pretrained(
@@ -163,39 +174,29 @@ def main(args):
     )
 
     if args.do_highlighting:
-        candidate_start_token = "[unused1]"
-        candidate_end_token = "[unused2]"
+        CANDIDATE_START_TOKEN = "[unused1]"
+        CANDIDATE_END_TOKEN = "[unused2]"
         tokenizer.add_special_tokens(
             {"additional_special_tokens": ["[unused1]", "[unused2]"]}
         )
     else:
-        candidate_start_token = ""
-        candidate_end_token = ""
+        CANDIDATE_START_TOKEN = ""
+        CANDIDATE_END_TOKEN = ""
 
     train_df = data_df_convert(
         train_df,
-        sep_token=tokenizer.sep_token,
-        candidate_start_token=candidate_start_token,
-        candidate_end_token=candidate_end_token,
-        linearization=args.do_linearization,
-    )
-    valid_df = data_df_convert(
-        valid_df,
-        sep_token=tokenizer.sep_token,
-        candidate_start_token=candidate_start_token,
-        candidate_end_token=candidate_end_token,
-        linearization=args.do_linearization,
+        tokenizer=tokenizer,
+        candidate_start_token=CANDIDATE_START_TOKEN,
+        candidate_end_token=CANDIDATE_END_TOKEN,
+        context=args.do_context,
     )
     test_df = data_df_convert(
         test_df,
-        sep_token=tokenizer.sep_token,
-        candidate_start_token=candidate_start_token,
-        candidate_end_token=candidate_end_token,
-        linearization=args.do_linearization,
+        tokenizer=tokenizer,
+        candidate_start_token=CANDIDATE_START_TOKEN,
+        candidate_end_token=CANDIDATE_END_TOKEN,
+        context=args.do_context,
     )
-
-    if args.fit_on_train_and_val:
-        train_df = pd.concat([train_df, valid_df])
 
     train_dataset = SequenceDataset(train_df, tokenizer)
     test_dataset = SequenceDataset(test_df, tokenizer)
@@ -218,14 +219,6 @@ def main(args):
         report_to="wandb" if args.wandb_on else "tensorboard",
     )
 
-    class CustomTrainer(Trainer):
-        def get_train_dataloader(self) -> torch.utils.data.DataLoader:
-            train_sampler = create_sampler(train_df["correct"].astype(int).ravel())
-            train_loader = torch.utils.data.DataLoader(
-                train_dataset, batch_size=32, sampler=train_sampler
-            )
-            return train_loader
-
     trainer = CustomTrainer(
         model=model,
         args=training_args,
@@ -241,20 +234,5 @@ def main(args):
     model.save_pretrained(checkpoint_best_path)
     tokenizer.save_pretrained(checkpoint_best_path)
 
-    print("Model dumbed to ", checkpoint_best_path)
-
-    print("\nLast one evaluation:\n\n", trainer.evaluate())
-
-
-if __name__ == "__main__":
-    args = parse.parse_args()
-
-    if args.wandb_on:
-        os.environ["WANDB_NAME"] = args.run_name
-
-    if args.do_linearization is False and args.do_highlighting is True:
-        raise ValueError(
-            "It is not possible to use do_highlighting and not to use do_linearization"
-        )
-
-    main(args)
+    print("Model dumped to ", checkpoint_best_path)
+    print("\nFinal evaluation:\n\n", trainer.evaluate())
