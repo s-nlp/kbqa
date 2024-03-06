@@ -1,4 +1,4 @@
-"""Train model for ranking subgraphs.
+"""Train model for ranking subgraphs with sequences.
 MSE Loss
 """
 import argparse
@@ -17,8 +17,6 @@ from transformers import (
     TrainingArguments,
 )
 from datasets import load_dataset
-
-from data_utils import SequenceDataset, data_df_convert
 
 
 torch.manual_seed(8)
@@ -47,14 +45,14 @@ parse.add_argument(
 parse.add_argument(
     "--data_path",
     type=str,
-    default="hle2000/Mintaka_Subgraphs_T5_xl_ssm",
-    help="Path to train JSONL file",
+    default="hle2000/Mintaka_Sequences_T5-large-ssm",
+    help="Path to train sequence data file (HF)",
 )
 
 parse.add_argument(
     "--output_path",
     type=str,
-    default="./subgraphs_reranking_runs/",
+    default="/workspace/storage/misc/subgraphs_reranking_results",
 )
 
 parse.add_argument(
@@ -73,7 +71,7 @@ parse.add_argument(
 
 parse.add_argument(
     "--wandb_on",
-    default=False,
+    default=True,
     type=lambda x: (str(x).lower() == "true"),
     help="Using WanDB or not (True/False)",
 )
@@ -81,7 +79,7 @@ parse.add_argument(
 parse.add_argument(
     "--per_device_train_batch_size",
     type=int,
-    default=16,
+    default=32,
 )
 
 parse.add_argument(
@@ -98,14 +96,15 @@ parse.add_argument(
 parse.add_argument(
     "--do_highlighting",
     type=lambda x: (str(x).lower() == "true"),
-    default=True,
+    default=False,
     help="If True, add highliting tokens for candidate in linearized graph",
 )
+
 parse.add_argument(
-    "--do_context",
-    type=lambda x: (str(x).lower() == "true"),
-    default=True,
-    help=' If False, "question + [SEP] + candiadte label" will used as a input for ranker model',
+    "--sequence_type",
+    type=str,
+    default="graph2text",
+    help="Sequence type, either old deterministic seq or new graph2text seq (determ/graph2text)",
 )
 
 
@@ -151,17 +150,48 @@ class CustomTrainer(Trainer):
         return sampler
 
 
+class SequenceDataset(torch.utils.data.Dataset):
+    """Dataset class for sequences"""
+
+    def __init__(self, dataframe, tok, seq_name):
+        self.dataframe = dataframe
+        self.tok = tok
+        self.seq_name = seq_name
+
+    def __getitem__(self, idx):
+        row = self.dataframe.iloc[idx]
+        item = self.tok(
+            row[self.seq_name],
+            truncation=True,
+            padding="max_length",
+            max_length=512,
+            return_tensors="pt",
+        )
+        item["input_ids"] = item["input_ids"].view(-1)
+        item["attention_mask"] = item["attention_mask"].view(-1)
+        item["labels"] = torch.tensor(  # pylint: disable=no-member
+            row["correct"], dtype=torch.float  # pylint: disable=no-member
+        )
+        return item
+
+    def __len__(self):
+        return self.dataframe.index.size
+
+
 if __name__ == "__main__":
     args = parse.parse_args()
 
     if args.wandb_on:
         os.environ["WANDB_NAME"] = args.run_name
 
-    if args.do_context is False and args.do_highlighting is True:
-        raise ValueError(
-            "It is not possible to use do_highlighting and not to use do_context"
-        )
-    Path(args.output_path).mkdir(parents=True, exist_ok=True)
+    if args.sequence_type not in ["determ", "graph2text"]:
+        raise ValueError("sequence type must be either determ or graph2text")
+    SEQ_FOLDER = (
+        "new_sequences" if args.sequence_type == "graph2text" else "old_sequences"
+    )
+    model_folder = args.data_path.split("_")[-1]  # either large or xl
+    output_path = f"{args.output_path}/{SEQ_FOLDER}/{model_folder}"
+    Path(output_path).mkdir(parents=True, exist_ok=True)
 
     subgraphs_dataset = load_dataset(args.data_path)
     train_df = subgraphs_dataset["train"].to_pandas()
@@ -173,43 +203,34 @@ if __name__ == "__main__":
         num_labels=1,
     )
 
-    if args.do_highlighting:
-        CANDIDATE_START_TOKEN = "[unused1]"
-        CANDIDATE_END_TOKEN = "[unused2]"
+    if args.do_highlighting:  # add special toks to tokenizer
         tokenizer.add_special_tokens(
             {"additional_special_tokens": ["[unused1]", "[unused2]"]}
         )
+        SEQ_TYPE = (
+            "highlighted_sequence"
+            if args.sequence_type == "determ"
+            else "highlighted_updated_sequence"
+        )
     else:
-        CANDIDATE_START_TOKEN = ""
-        CANDIDATE_END_TOKEN = ""
+        SEQ_TYPE = (
+            "no_highlighted_sequence"
+            if args.sequence_type == "determ"
+            else "no_highlighted_updated_sequence"
+        )
 
-    train_df = data_df_convert(
-        train_df,
-        tokenizer=tokenizer,
-        candidate_start_token=CANDIDATE_START_TOKEN,
-        candidate_end_token=CANDIDATE_END_TOKEN,
-        context=args.do_context,
-    )
-    test_df = data_df_convert(
-        test_df,
-        tokenizer=tokenizer,
-        candidate_start_token=CANDIDATE_START_TOKEN,
-        candidate_end_token=CANDIDATE_END_TOKEN,
-        context=args.do_context,
-    )
-
-    train_dataset = SequenceDataset(train_df, tokenizer)
-    test_dataset = SequenceDataset(test_df, tokenizer)
+    train_dataset = SequenceDataset(train_df, tokenizer, SEQ_TYPE)
+    test_dataset = SequenceDataset(test_df, tokenizer, SEQ_TYPE)
 
     training_args = TrainingArguments(
-        output_dir=Path(args.output_path) / args.run_name / "outputs",
+        output_dir=Path(output_path) / args.run_name / "outputs",
         save_total_limit=1,
         num_train_epochs=args.num_train_epochs,
         per_device_train_batch_size=args.per_device_train_batch_size,
         per_device_eval_batch_size=args.per_device_eval_batch_size,
         warmup_steps=500,
         weight_decay=0.01,
-        logging_dir=Path(args.output_path) / args.run_name / "logs",
+        logging_dir=Path(output_path) / args.run_name / "logs",
         load_best_model_at_end=True,
         metric_for_best_model="balanced_accuracy",
         greater_is_better=True,
@@ -229,7 +250,7 @@ if __name__ == "__main__":
     trainer.train()
 
     checkpoint_best_path = (
-        Path(args.output_path) / args.run_name / "outputs" / "checkpoint-best"
+        Path(output_path) / args.run_name / "outputs" / "checkpoint-best"
     )
     model.save_pretrained(checkpoint_best_path)
     tokenizer.save_pretrained(checkpoint_best_path)

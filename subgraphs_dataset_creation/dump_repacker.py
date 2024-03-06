@@ -3,7 +3,6 @@
 script to parse the wikidata dump
 """
 import argparse
-import bz2
 import gzip
 import multiprocessing as mp
 import os
@@ -38,7 +37,6 @@ def load_bz(data_path_bz2, lines_skip):
     """
     parse bz file, yield 1 record at a time
     """
-    # with bz2.open(data_path_bz2, mode="rt") as file:
     with gzip.open(data_path_bz2, mode="rt") as file:
         file.read(2)  # skip first two bytes: "{\n"
         for idx, line in enumerate(itertools.islice(file, lines_skip, None)):
@@ -58,7 +56,7 @@ def open_pickle(pkl_file):
     return res
 
 
-def worker(save_dir, json_dump, idx, line, queue):
+def worker(save_dir, json_dump, idx, line, queue):  # pylint: disable=too-many-locals
     """
     worker parsing 1 record, retrieve the rdf triple form and
     put on the queue
@@ -75,16 +73,21 @@ def worker(save_dir, json_dump, idx, line, queue):
 
         rdf_triples = ""
         entity1 = pydash.get(record, "id")
-        entity_label = pydash.get(record, "labels.en.value").replace(" ", "<space-replaced>")
+        entity_label = pydash.get(record, "labels.en.value").replace(
+            " ", "<space-replaced>"
+        )
         lgl = f"\n#\t{entity1}"
         lgl += f"\n{entity_label}\t-1"
 
         # each key is the relationship between entity1 and 2
         for key in pydash.get(record, "claims").keys():
-            for connected_entity_record in pydash.get(record, f"claims.{key}"):
-                if pydash.get(connected_entity_record, "mainsnak.datavalue.type") == "wikibase-entityid":
+            for connected_ent_record in pydash.get(record, f"claims.{key}"):
+                if (
+                    pydash.get(connected_ent_record, "mainsnak.datavalue.type")
+                    == "wikibase-entityid"
+                ):
                     entity2 = pydash.get(
-                        connected_entity_record, "mainsnak.datavalue.value.id"
+                        connected_ent_record, "mainsnak.datavalue.value.id"
                     )
                     # not including the Q and P
                     rdf_triples += f"{entity1[1:]}\t{entity2[1:]}\t{key[1:]}\n"
@@ -97,11 +100,10 @@ def worker(save_dir, json_dump, idx, line, queue):
         }
         queue.put((idx, msg))
 
-    except ujson.JSONDecodeError as e:
+    except ujson.JSONDecodeError as error:
         print(f"Error idx: {idx}")
-        print(e)
+        print(error)
         print(line)
-        pass
 
 
 def init_worker():
@@ -109,7 +111,9 @@ def init_worker():
     signal.signal(signal.SIGINT, signal.SIG_IGN)
 
 
-def listener(save_dir, queue, response_queue, lines_skipped):
+def listener(
+    save_dir, queue, response_queue, lines_skipped
+):  # pylint: disable=too-many-locals
     """
     listens for messages on our queue, write to the result file
     """
@@ -124,13 +128,19 @@ def listener(save_dir, queue, response_queue, lines_skipped):
                 while True:
                     idx, msg = queue.get()
                     if msg == "kill":
-                        response_queue.put(f"KILL done: last written entity: {last_written_entity}")
+                        response_queue.put(
+                            f"KILL done: last written entity: {last_written_entity}"
+                        )
                         break
                     if msg == "kp":
                         with open(checkpoint, "w", encoding="utf-8") as check_f:
-                            check_f.write(f"{str(idx + lines_skipped)}\n{last_written_entity}")
+                            check_f.write(
+                                f"{str(idx + lines_skipped)}\n{last_written_entity}"
+                            )
                         response_queue.put(
-                            f"KP done: next part starts with idx: {idx + lines_skipped}, last written entity: {last_written_entity}")
+                            f"KP done: next part starts with idx: {idx + lines_skipped}, \
+                                last written entity: {last_written_entity}"
+                        )
                         continue
                     try:
                         space_index = msg["triples"].find("\t")
@@ -153,26 +163,9 @@ def listener(save_dir, queue, response_queue, lines_skipped):
                             os._exit(130)  # pylint: disable=W0212
 
 
-def main():
+def main():  # pylint: disable=too-many-locals
     """main function"""
     args = parser.parse_args()
-
-    # with gzip.open(args.data_path, mode="rt") as file:
-    #     for i in range(2):
-    #         line = file.readline()
-    #         if i == 0:
-    #             continue
-    #         line = ujson.loads(line.rstrip(",\n"))
-
-    #         first_conn = list(pydash.get(line, "claims").keys())[1]
-    #         print(first_conn)
-    #         tmp = pydash.get(line, f"claims.{first_conn}")[0]
-    #         tmp2 = pydash.get(tmp, "mainsnak.datatype")
-
-    #         entity_label = pydash.get(line, "labels.en.value")
-    #         print(entity_label)
-
-    # return
 
     checkpoint = f"{args.save_path}/checkpoint.txt"
     Path(args.save_path).mkdir(parents=True, exist_ok=True)
@@ -192,7 +185,10 @@ def main():
     print(f"Skip {lines_skipped} lines because of checkpoint")
 
     with mp.Pool(1, init_worker) as writing_pool:
-        writing_pool.apply_async(listener, (args.save_path, task_queue, listener_response_queue, lines_skipped))
+        writing_pool.apply_async(
+            listener,
+            (args.save_path, task_queue, listener_response_queue, lines_skipped),
+        )
 
         kp_amount = 10000
         with mp.Pool(number_of_processes, init_worker) as pool:
@@ -216,9 +212,6 @@ def main():
                     )
                     asyncs.append(res)
                     last_idx = idx
-                    # if idx > 3:
-                    #     break
-                # print(idx)
 
                 for res in asyncs:
                     res.wait()
@@ -229,7 +222,9 @@ def main():
                 writing_pool.close()
 
                 end = time.time()
-                print(f"time took {end - start}, total number of records: {last_idx + 1}")
+                print(
+                    f"time took {end - start}, total number of records: {last_idx + 1}"
+                )
             except KeyboardInterrupt:
                 print("Exiting from main pool early!")
                 # terminate and joining since we are interrupting
