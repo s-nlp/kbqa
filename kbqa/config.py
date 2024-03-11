@@ -16,6 +16,7 @@ SEQ2SEQ_AVAILABLE_HF_PRETRAINED_MODEL_NAMES = [
     "google/t5-small-ssm-nq",
     "google/flan-t5-small",
     "google/flan-t5-large",
+    "s-nlp/t5_large_ssm_nq_mintaka",
 ]
 
 SPARQL_ENDPOINT = os.environ.get("SPARQL_ENDPOINT", "https://query.wikidata.org/sparql")
