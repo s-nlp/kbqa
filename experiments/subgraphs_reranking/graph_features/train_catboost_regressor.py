@@ -19,10 +19,10 @@ parse.add_argument(
     help="Path to train sequence data file (HF)",
 )
 parse.add_argument(
-    "--with_tfidf",
-    type=bool,
-    default=False,
-    help="to whether or not use TDA tfidf to train",
+    "--hf_cache_dir",
+    type=str,
+    default="/workspace/storage/misc/huggingface",
+    help="path for the results folder ",
 )
 parse.add_argument(
     "--num_iters",
@@ -46,7 +46,7 @@ parse.add_argument(
     "--sequence_type",
     type=str,
     default="g2t",
-    choices=["g2t", "determ", "gap", "all"],
+    choices=["g2t", "determ", "gap"],
     help="path for the results folder ",
 )
 
@@ -54,22 +54,19 @@ parse.add_argument(
 def filter_df_sequence(dataframe, seq_type):
     """filter df base on the sequence type,
     return filtered df & textual + embedding features"""
-
     textual_feat = ["determ_sequence", "g2t_sequence", "gap_sequence"]
-    if seq_type != "all":
-        if seq_type == "g2t":
-            rm_lst = ["determ_sequence", "gap_sequence"]
-        elif seq_type == "determ":
-            rm_lst = ["g2t_sequence", "gap_sequence"]
-        elif seq_type == "gap":
-            rm_lst = ["determ_sequence", "g2t_sequence"]
-        drop_text_cols = [item for item in textual_feat if item in rm_lst]
-        drop_em_cols = [f"{feat}_embedding" for feat in drop_text_cols]
-        dataframe = dataframe.drop(drop_text_cols + drop_em_cols, axis=1)
-        textual_feat = [f"{seq_type}_sequence"]
-        emb_feat = [f"{seq_type}_sequence_embedding"]
-    else:
-        emb_feat = [f"{feat}_embedding" for feat in textual_feat]
+
+    if seq_type == "g2t":
+        rm_lst = ["determ_sequence", "gap_sequence"]
+    elif seq_type == "determ":
+        rm_lst = ["g2t_sequence", "gap_sequence"]
+    elif seq_type == "gap":
+        rm_lst = ["determ_sequence", "g2t_sequence"]
+    drop_text_cols = [item for item in textual_feat if item in rm_lst]
+    drop_em_cols = [f"{feat}_embedding" for feat in drop_text_cols]
+    dataframe = dataframe.drop(drop_text_cols + drop_em_cols, axis=1)
+    textual_feat = [f"{seq_type}_sequence"]
+    emb_feat = [f"{seq_type}_sequence_embedding"]
 
     return dataframe, textual_feat, emb_feat
 
@@ -81,9 +78,12 @@ def str_to_arr(strng):
     return np.array(arr)
 
 
-def apply_col_scale(dataframe, col, scaler):
+def apply_col_scale(dataframe, col, scaler, scale_type):
     """apply min max scaling"""
-    dataframe[col] = scaler.fit_transform(dataframe[col])
+    if scale_type == "train":
+        dataframe[col] = scaler.fit_transform(dataframe[col])
+    else:
+        dataframe[col] = scaler.transform(dataframe[col])
     return dataframe
 
 
@@ -113,18 +113,15 @@ def process_numeric_features(train, test):
     train_numeric_cols = get_numeric_cols(train)
     test_numeric_cols = get_numeric_cols(test)
 
-    train = apply_col_scale(train, train_numeric_cols, min_max_scaler)
-    test = apply_col_scale(test, test_numeric_cols, min_max_scaler)
+    train = apply_col_scale(train, train_numeric_cols, min_max_scaler, "train")
+    test = apply_col_scale(test, test_numeric_cols, min_max_scaler, "test")
     return train, test
 
 
-def process_embedding_features(train, test, embedding_features, with_tdidf):
+def process_embedding_features(train, test, embedding_features):
     """proccess all embedding features"""
-    if not with_tdidf:
-        train = train.drop("tfidf_vector", axis=1)
-        test = test.drop("tfidf_vector", axis=1)
-    else:  # with tfidf
-        embedding_features.append("tfidf_vector")
+    train = train.drop("tfidf_vector", axis=1)
+    test = test.drop("tfidf_vector", axis=1)
 
     for curr_feat in embedding_features:
         train[curr_feat] = train[curr_feat].apply(str_to_arr)
@@ -149,12 +146,12 @@ if __name__ == "__main__":
     save_path = Path(args.save_folder_path) / Path(args.run_name)
     Path(save_path).mkdir(parents=True, exist_ok=True)
 
-    graph_features_ds = load_dataset(args.features_data_path)
+    graph_features_ds = load_dataset(args.features_data_path, args.hf_cache_dir)
     train_df = graph_features_ds["train"].to_pandas()
-    test_df = graph_features_ds["test"].to_pandas()
+    val_df = graph_features_ds["validation"].to_pandas()
 
     # process numeric features
-    train_df, test_df = process_numeric_features(train_df, test_df)
+    train_df, val_df = process_numeric_features(train_df, val_df)
 
     # filter dataset based on which seq type and process textual features
     text_features = ["question_answer"]
@@ -162,20 +159,20 @@ if __name__ == "__main__":
     train_df, textual_feats, embd_feats = filter_df_sequence(
         train_df, args.sequence_type
     )
-    test_df, _, _ = filter_df_sequence(test_df, args.sequence_type)
+    val_df, _, _ = filter_df_sequence(val_df, args.sequence_type)
     text_features += textual_feats
     emb_features += embd_feats
-    train_df, test_df = process_text_features(train_df, test_df, text_features)
+    train_df, val_df = process_text_features(train_df, val_df, text_features)
 
     # process the embedding features
-    train_df, test_df, emb_features = process_embedding_features(
-        train_df, test_df, emb_features, args.with_tfidf
+    train_df, val_df, emb_features = process_embedding_features(
+        train_df, val_df, emb_features
     )
 
     X_train = train_df.drop(["correct", "question"], axis=1)
-    X_test = test_df.drop(["correct", "question"], axis=1)
+    X_test = val_df.drop(["correct", "question"], axis=1)
     y_train = train_df["correct"].tolist()
-    y_test = test_df["correct"].tolist()
+    y_test = val_df["correct"].tolist()
 
     learn_pool = Pool(
         X_train,
@@ -192,7 +189,6 @@ if __name__ == "__main__":
         text_features=text_features,
         feature_names=list(X_test),
         embedding_features=emb_features,
-        weight=find_weight(y_test),
     )
 
     # hyper-params tuning
