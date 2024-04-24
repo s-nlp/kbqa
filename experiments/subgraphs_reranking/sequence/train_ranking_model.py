@@ -45,7 +45,7 @@ parse.add_argument(
 parse.add_argument(
     "--data_path",
     type=str,
-    default="hle2000/Mintaka_Sequences_T5-large-ssm",
+    default="hle2000/Mintaka_Updated_Sequences_T5-large-ssm",
     help="Path to train sequence data file (HF)",
 )
 
@@ -96,14 +96,15 @@ parse.add_argument(
 parse.add_argument(
     "--do_highlighting",
     type=lambda x: (str(x).lower() == "true"),
-    default=False,
+    default=True,
     help="If True, add highliting tokens for candidate in linearized graph",
 )
 
 parse.add_argument(
     "--sequence_type",
     type=str,
-    default="graph2text",
+    default="gap",
+    choices=["determ", "gap", "g2t"],
     help="Sequence type, either old deterministic seq or new graph2text seq (determ/graph2text)",
 )
 
@@ -184,13 +185,8 @@ if __name__ == "__main__":
     if args.wandb_on:
         os.environ["WANDB_NAME"] = args.run_name
 
-    if args.sequence_type not in ["determ", "graph2text"]:
-        raise ValueError("sequence type must be either determ or graph2text")
-    SEQ_FOLDER = (
-        "new_sequences" if args.sequence_type == "graph2text" else "old_sequences"
-    )
     model_folder = args.data_path.split("_")[-1]  # either large or xl
-    output_path = f"{args.output_path}/{SEQ_FOLDER}/{model_folder}"
+    output_path = f"{args.output_path}/{args.sequence_type}/{model_folder}"
     Path(output_path).mkdir(parents=True, exist_ok=True)
 
     subgraphs_dataset = load_dataset(args.data_path)
@@ -207,17 +203,11 @@ if __name__ == "__main__":
         tokenizer.add_special_tokens(
             {"additional_special_tokens": ["[unused1]", "[unused2]"]}
         )
-        SEQ_TYPE = (
-            "highlighted_sequence"
-            if args.sequence_type == "determ"
-            else "highlighted_updated_sequence"
-        )
+        HL_TYPE = "highlighted"
     else:
-        SEQ_TYPE = (
-            "no_highlighted_sequence"
-            if args.sequence_type == "determ"
-            else "no_highlighted_updated_sequence"
-        )
+        HL_TYPE = "no_highlighted"
+
+    SEQ_TYPE = f"{HL_TYPE}_{args.sequence_type}_sequence"
 
     train_dataset = SequenceDataset(train_df, tokenizer, SEQ_TYPE)
     test_dataset = SequenceDataset(test_df, tokenizer, SEQ_TYPE)
