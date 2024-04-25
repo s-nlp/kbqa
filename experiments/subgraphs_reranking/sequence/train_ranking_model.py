@@ -45,7 +45,7 @@ parse.add_argument(
 parse.add_argument(
     "--data_path",
     type=str,
-    default="hle2000/Mintaka_Updated_Sequences_T5-large-ssm",
+    default="hle2000/KGQA_T5-xl-ssm",
     help="Path to train sequence data file (HF)",
 )
 
@@ -103,9 +103,9 @@ parse.add_argument(
 parse.add_argument(
     "--sequence_type",
     type=str,
-    default="gap",
-    choices=["determ", "gap", "g2t"],
-    help="Sequence type, either old deterministic seq or new graph2text seq (determ/graph2text)",
+    default="question_answer",
+    choices=["determ", "gap", "t5", "question_answer"],
+    help="Sequence type, either determ, gap, t5 or just question+answer",
 )
 
 
@@ -161,8 +161,13 @@ class SequenceDataset(torch.utils.data.Dataset):
 
     def __getitem__(self, idx):
         row = self.dataframe.iloc[idx]
+        if self.seq_name == "question_answer":
+            q_a_splits = row[self.seq_name].split(";")
+            sequence = f"{q_a_splits[0]}{self.tok.sep_token}{q_a_splits[-1]}"
+        else:
+            sequence = row[self.seq_name]
         item = self.tok(
-            row[self.seq_name],
+            sequence,
             truncation=True,
             padding="max_length",
             max_length=512,
@@ -191,7 +196,7 @@ if __name__ == "__main__":
 
     subgraphs_dataset = load_dataset(args.data_path)
     train_df = subgraphs_dataset["train"].to_pandas()
-    test_df = subgraphs_dataset["test"].to_pandas()
+    val_df = subgraphs_dataset["validation"].to_pandas()
 
     tokenizer = AutoTokenizer.from_pretrained(args.model_name)
     model = AutoModelForSequenceClassification.from_pretrained(
@@ -207,10 +212,13 @@ if __name__ == "__main__":
     else:
         HL_TYPE = "no_highlighted"
 
-    SEQ_TYPE = f"{HL_TYPE}_{args.sequence_type}_sequence"
+    if args.sequence_type == "question_answer":
+        SEQ_TYPE = "question_answer"
+    else:
+        SEQ_TYPE = f"{HL_TYPE}_{args.sequence_type}_sequence"
 
     train_dataset = SequenceDataset(train_df, tokenizer, SEQ_TYPE)
-    test_dataset = SequenceDataset(test_df, tokenizer, SEQ_TYPE)
+    val_dataset = SequenceDataset(val_df, tokenizer, SEQ_TYPE)
 
     training_args = TrainingArguments(
         output_dir=Path(output_path) / args.run_name / "outputs",
@@ -234,7 +242,7 @@ if __name__ == "__main__":
         model=model,
         args=training_args,
         train_dataset=train_dataset,
-        eval_dataset=test_dataset,
+        eval_dataset=val_dataset,
         compute_metrics=lambda x: compute_metrics(x, args.classification_threshold),
     )
     trainer.train()
