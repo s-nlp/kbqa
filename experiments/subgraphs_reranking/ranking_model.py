@@ -1,9 +1,9 @@
+"""model class for all rerankers approach"""
 import random
 from abc import ABC, abstractmethod
 from typing import List, TypedDict
 
 import numpy as np
-import pandas as pd
 import torch
 from pandas import DataFrame
 from sklearn.exceptions import NotFittedError
@@ -13,30 +13,42 @@ from transformers import (
     AutoModelForSequenceClassification,
     AutoTokenizer,
 )
+from catboost import CatBoostRegressor
+from ranking_data_utils import df_to_features_array
 
 
 class RankedAnswer(TypedDict):
+    """each answer format"""
+
     AnswerEntityID: str
     AnswerString: str
     Score: float
 
 
 class RankedAnswersDict(TypedDict):
+    """each question format (multiple ranked answer)"""
+
     QuestionID: str
     RankedAnswers: List[RankedAnswer]
 
 
 class Ranker(ABC):
+    """abstract ranker class, all approaches follow this format"""
+
     @abstractmethod
     def fit(self, train_df: DataFrame) -> None:
-        pass
+        """fit the model if needed"""
+        return
 
     @abstractmethod
     def rerank(self, test_df: DataFrame) -> List[RankedAnswersDict]:
-        pass
+        """rerank the fit/trained model"""
+        return
 
 
 class NORanker(Ranker):
+    """no reranking, take the base LLM's output"""
+
     def fit(self, train_df: DataFrame) -> None:
         pass
 
@@ -64,10 +76,13 @@ class NORanker(Ranker):
 
 
 class FullRandomRanker(Ranker):
+    """random ranking"""
+
     def fit(self, train_df: DataFrame) -> None:
         pass
 
     def rerank(self, test_df: DataFrame) -> List[RankedAnswersDict]:
+        """rerank the answers by shuffling the base LLM outputs"""
         test_df = test_df.drop_duplicates(subset=["id"])
         results = []
         for _, row in test_df.iterrows():
@@ -91,20 +106,9 @@ class FullRandomRanker(Ranker):
         return results
 
 
-def df_to_features_array(df: DataFrame) -> np.ndarray:
-    features_array = []
-    for column in df.columns:
-        # If value in this column a list or ndarray, then this column contains embeddings
-        is_embedding_column = isinstance(df[column].iloc[0], (list, np.ndarray))
-
-        if is_embedding_column:
-            features_array.append(np.vstack(df[column].values))
-        else:
-            features_array.append(np.expand_dims(df[column].values, axis=1))
-    return np.hstack(features_array)
-
-
 class RankerBase(Ranker):
+    """base class for all reranker to inherit"""
+
     def fit(self, train_df: DataFrame) -> None:
         raise NotImplementedError()
 
@@ -130,6 +134,7 @@ class RankerBase(Ranker):
     def _model_answers_to_ranked_answers(
         self, model_answers: List[str]
     ) -> List[RankedAnswer]:
+        """build the dict of ranked answer"""
         return [
             RankedAnswer(
                 AnswerEntityID=None,
@@ -141,11 +146,14 @@ class RankerBase(Ranker):
 
 
 class LogisticRegressionRanker(RankerBase):
+    """reranker for LogisticRegression"""
+
     def __init__(self, features_to_use: list):
         self.features_to_use = features_to_use
         self.model = None
 
     def fit(self, train_df: DataFrame, **kwargs) -> None:
+        """fit LogReg on train_df"""
         train_df = train_df.dropna(subset=["graph"])
 
         x_train = df_to_features_array(train_df[self.features_to_use])
@@ -159,6 +167,8 @@ class LogisticRegressionRanker(RankerBase):
         self.model.fit(x_train, y_train)
 
     def rerank(self, test_df: DataFrame) -> List[RankedAnswersDict]:
+        """given test_df, rerank using the fitted model from func above and
+        output the predictions in the specified format above"""
         if self.model is None:
             raise NotFittedError("This ranker model is not fitted yet.")
 
@@ -184,11 +194,14 @@ class LogisticRegressionRanker(RankerBase):
 
 
 class LinearRegressionRanker(RankerBase):
+    """reranker for LinearRegression"""
+
     def __init__(self, features_to_use: list):
         self.features_to_use = features_to_use
         self.model = None
 
     def fit(self, train_df: DataFrame, **kwargs) -> None:
+        """fit LinReg on train_df"""
         train_df = train_df.dropna(subset=["graph"])
 
         x_train = df_to_features_array(train_df[self.features_to_use])
@@ -200,6 +213,8 @@ class LinearRegressionRanker(RankerBase):
         self.model.fit(x_train, y_train)
 
     def rerank(self, test_df: DataFrame) -> List[RankedAnswersDict]:
+        """given test_df, rerank using the fitted model from func above and
+        output the predictions in the specified format above"""
         if self.model is None:
             raise NotFittedError("This ranker model is not fitted yet.")
 
@@ -225,6 +240,9 @@ class LinearRegressionRanker(RankerBase):
 
 
 class MPNetRanker(RankerBase):
+    """reranker for MPNET"""
+
+    # pylint: disable=no-member
     def __init__(self, feature_to_use: str, model_path: str, device: torch.device):
         self.feature_to_use = feature_to_use
         self.model_path = model_path
@@ -234,19 +252,21 @@ class MPNetRanker(RankerBase):
         self.model = None
 
         try:
-            print("Try load model...")
+            print("Trying to load the model...")
             self.tokenizer = AutoTokenizer.from_pretrained(model_path)
             self.model = AutoModelForSequenceClassification.from_pretrained(
                 model_path
             ).to(device)
             print("Model Loaded.")
-        except Exception as e:
-            print(f"Model not exist or broken: {e}")
+        except Exception as exception:  # pylint: disable=broad-except
+            print(f"Failed to load model: {exception}")
 
     def fit(self, train_df: DataFrame, **kwargs) -> None:
         raise NotImplementedError()
 
     def rerank(self, test_df: DataFrame) -> List[RankedAnswersDict]:
+        """given test_df, rerank using the trained model and output the
+        predictions in the specified format above"""
         if self.model is None or self.tokenizer is None:
             raise NotFittedError("This ranker model is not fitted yet.")
 
@@ -271,6 +291,50 @@ class MPNetRanker(RankerBase):
                         outputs.logits.cpu().detach().flatten().numpy().astype(float)
                     )
 
+                ranked_answers = self._sort_answers_group_by_scores(group, scores)
+            else:
+                # If we have no subgraphs, just use initial answers
+                answers = list(dict.fromkeys(group["model_answers"].iloc[0]).keys())
+                ranked_answers = self._model_answers_to_ranked_answers(answers)
+
+            results.append(
+                RankedAnswersDict(
+                    QuestionID=question_id,
+                    RankedAnswers=ranked_answers,
+                )
+            )
+        return results
+
+
+class CatboostRanker(RankerBase):
+    """reranker for Catboost"""
+
+    def __init__(self, model_path, features_to_use: list):
+        self.features_to_use = features_to_use
+        self.model = None
+
+        try:
+            print("Trying to load the model...")
+            self.model = CatBoostRegressor().load_model(model_path)
+            print("Model Loaded.")
+        except Exception as exception:  # pylint: disable=broad-except
+            print(f"Failed to load model: {exception}")
+
+    def fit(self, train_df: DataFrame, **kwargs) -> None:
+        raise NotImplementedError()
+
+    def rerank(self, test_df: DataFrame) -> List[RankedAnswersDict]:
+        """given test_df, rerank using the trained model and output the
+        predictions in the specified format above"""
+        if self.model is None:
+            raise NotFittedError("This ranker model is not fitted yet.")
+
+        results = []
+        groups = test_df.groupby("id")
+        for question_id, group in tqdm(groups, total=len(test_df["id"].unique())):
+            if isinstance(group["graph"].iloc[0], (dict, str)):
+                # If we have subgraphs, use it to rerank
+                scores = self.model.predict(group[self.features_to_use])
                 ranked_answers = self._sort_answers_group_by_scores(group, scores)
             else:
                 # If we have no subgraphs, just use initial answers

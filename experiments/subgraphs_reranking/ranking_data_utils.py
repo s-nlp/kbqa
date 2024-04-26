@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 from datasets import Dataset
 
 
@@ -33,3 +34,16 @@ def prepare_data(
     df = merge_datasets(mintaka_ds, outputs_ds, features_ds)
     df = compile_seq2seq_outputs_to_model_answers_column(df)
     return df
+
+def df_to_features_array(df: pd.DataFrame) -> np.ndarray:
+    """convert from df to arr representation"""
+    features_array = []
+    for column in df.columns:
+        # If value in this column a list or ndarray, then this column contains embeddings
+        is_embedding_column = isinstance(df[column].iloc[0], (list, np.ndarray))
+
+        if is_embedding_column:
+            features_array.append(np.vstack(df[column].values))
+        else:
+            features_array.append(np.expand_dims(df[column].values, axis=1))
+    return np.hstack(features_array)
