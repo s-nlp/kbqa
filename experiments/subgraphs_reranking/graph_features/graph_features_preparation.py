@@ -5,7 +5,6 @@ import yaml
 from datasets import load_dataset, Dataset, DatasetDict
 from gtda.homology import FlagserPersistence
 from gtda.graphs import GraphGeodesicDistance
-from gtda.diagrams import HeatKernel
 from sentence_transformers import SentenceTransformer
 import networkx as nx
 from networkx.readwrite import json_graph
@@ -17,7 +16,7 @@ import torch
 parse = argparse.ArgumentParser()
 parse.add_argument(
     "--subgraphs_dataset_path",
-    default="hle2000/Mintaka_Subgraphs_T5_xl_ssm",
+    default="s-nlp/Mintaka_Subgraphs_T5_xl_ssm",
     type=str,
     help="Path for the subgraphs dataset (HF)",
 )
@@ -32,21 +31,35 @@ parse.add_argument(
 parse.add_argument(
     "--g2t_test_path",
     type=str,
-    default="/workspace/storage/misc/test_results_mintaka_T5XL.yaml",
+    default="/workspace/storage/misc/test_results_mintaka_T5Large.yaml",
+    help="Path to g2t test yaml file",
+)
+
+parse.add_argument(
+    "--g2t_val_path",
+    type=str,
+    default="/workspace/storage/misc/val_results_t5_xl.yaml",
     help="Path to g2t test yaml file",
 )
 
 parse.add_argument(
     "--gap_train_path",
     type=str,
-    default="/workspace/storage/misc/gap_train_mintaka_xl_predictions.txt",
+    default="/workspace/storage/misc/gap_train_mintaka_large_predictions.txt",
     help="Path to g2t train yaml file",
 )
 
 parse.add_argument(
     "--gap_test_path",
     type=str,
-    default="/workspace/storage/misc/gap_test_mintaka_xl_predictions.txt",
+    default="/workspace/storage/misc/gap_test_mintaka_large_predictions.txt",
+    help="Path to g2t test yaml file",
+)
+
+parse.add_argument(
+    "--gap_val_path",
+    type=str,
+    default="/workspace/storage/misc/gap_val_mintaka_t5_xl_filtered_predictions.txt",
     help="Path to g2t test yaml file",
 )
 
@@ -60,7 +73,7 @@ parse.add_argument(
 parse.add_argument(
     "--hf_path",
     type=str,
-    default="hle2000/Mintaka_Graph_Features_Updated_T5-xl-ssm",
+    default="hle2000/Mintaka_Graph_Features_Updated_T5-large-ssm",
     help="path to upload to HuggingFace",
 )
 
@@ -200,7 +213,7 @@ def find_candidate_note(graph):
     raise ValueError("Cannot find answer candidate entity")
 
 
-def get_features(dataframe, model, kernel, device):
+def get_features(dataframe, model, device):
     """get the graph features for the df"""
     dict_list = []
     for _, row in tqdm(dataframe.iterrows()):
@@ -250,7 +263,7 @@ def get_features(dataframe, model, kernel, device):
                 "question_answer_embedding": arr_to_str(
                     model.encode(ques_ans, device=device, convert_to_numpy=True)
                 ),
-                "tfidf_vector": arr_to_str(get_graph_vector(kernel, graph_obj)),
+                "tfidf_vector": np.array([]),
                 # label
                 "correct": float(row["correct"]),
             }
@@ -265,24 +278,29 @@ def get_features(dataframe, model, kernel, device):
 if __name__ == "__main__":
     args = parse.parse_args()
 
-    subgraphs_dataset = load_dataset(args.subgraphs_dataset_path)
+    subgraphs_dataset = load_dataset(
+        args.subgraphs_dataset_path, cache_dir="/workspace/storage/misc/huggingface"
+    )
     train_df = subgraphs_dataset["train"].to_pandas()
+    val_df = subgraphs_dataset["validation"].to_pandas()
     test_df = subgraphs_dataset["test"].to_pandas()
 
     # adding the new g2t sequences to subgraph dataset
     train_df = add_new_seqs(args.g2t_train_path, args.gap_train_path, train_df)
     test_df = add_new_seqs(args.g2t_test_path, args.gap_test_path, test_df)
+    val_df = add_new_seqs(args.g2t_val_path, args.gap_val_path, val_df)
 
     # get all features and add to df
-    heat_kernel = HeatKernel(sigma=0.15, n_bins=60, n_jobs=-1)
     smodel = SentenceTransformer("all-mpnet-base-v2")
     curr_device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    processed_train_df = get_features(train_df, smodel, heat_kernel, curr_device)
-    processed_test_df = get_features(test_df, smodel, heat_kernel, curr_device)
+    processed_train_df = get_features(train_df, smodel, curr_device)
+    processed_test_df = get_features(test_df, smodel, curr_device)
+    processed_val_df = get_features(val_df, smodel, curr_device)
 
     # upload to HF
     if args.upload_dataset:
         ds = DatasetDict()
         ds["train"] = Dataset.from_pandas(processed_train_df)
+        ds["validation"] = Dataset.from_pandas(processed_val_df)
         ds["test"] = Dataset.from_pandas(processed_test_df)
         ds.push_to_hub(args.hf_path)
