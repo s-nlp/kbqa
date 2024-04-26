@@ -42,7 +42,7 @@ parser = ArgumentParser(
 parser.add_argument(
     "--predictions_path",
     help="Path to JSONL file with predictions" + EXAMPLE_OF_DATA_FORMAT,
-    default="/workspace/storage/misc/subgraphs_reranking_runs/reranking_model_results/t5_xl_ssm/mpnet_text_only_reranking_seq2seq_xl_results.jsonl",
+    default="/workspace/storage/misc/subgraphs_reranking_runs/reranking_model_results/t5_large_ssm/mpnet_highlighted_t5_sequence_reranking_seq2seq_large_2_results.jsonl",
 )
 
 parser.add_argument(
@@ -218,7 +218,8 @@ if __name__ == "__main__":
 
     # save reranking results
     OUTPUT_DIR = "/".join(args.predictions_path.split("/")[:-1])
-    output_path = f"{OUTPUT_DIR}/reranking_result.txt"
+    run_name = args.predictions_path.split("/")[-1]
+    output_path = f"{OUTPUT_DIR}/reranking_result_{run_name}.txt"
     with open(output_path, "w+", encoding="utf-8") as file_output:
         file_output.write("Hit scores: \n")
         for key, val in reranking_results.items():
