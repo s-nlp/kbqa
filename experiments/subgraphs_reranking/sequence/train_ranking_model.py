@@ -45,8 +45,15 @@ parse.add_argument(
 parse.add_argument(
     "--data_path",
     type=str,
-    default="hle2000/KGQA_T5-xl-ssm",
+    default="s-nlp/KGQASubgraphsRanking",
     help="Path to train sequence data file (HF)",
+)
+
+parse.add_argument(
+    "--data_config",
+    type=str,
+    default="default",
+    help="Path to train sequence data config (HF)",
 )
 
 parse.add_argument(
@@ -194,7 +201,7 @@ if __name__ == "__main__":
     output_path = f"{args.output_path}/{args.sequence_type}/{model_folder}"
     Path(output_path).mkdir(parents=True, exist_ok=True)
 
-    subgraphs_dataset = load_dataset(args.data_path)
+    subgraphs_dataset = load_dataset(args.data_path, args.data_config)
     train_df = subgraphs_dataset["train"].to_pandas()
     val_df = subgraphs_dataset["validation"].to_pandas()
 

@@ -15,6 +15,8 @@ from transformers import (
 )
 from catboost import CatBoostRegressor
 from ranking_data_utils import df_to_features_array
+from sentence_transformers import SentenceTransformer, util
+from pywikidata import Entity
 
 
 class RankedAnswer(TypedDict):
@@ -347,4 +349,52 @@ class CatboostRanker(RankerBase):
                     RankedAnswers=ranked_answers,
                 )
             )
+        return results
+
+
+class SemanticRanker(RankerBase):
+    """
+    Semantic Ranker - Ranker model that caclulate similarity between embeddings of question and answer 
+    and rank answers by this similarity (ZS)
+    """
+    def __init__(
+        self,
+        sentence_embedding_model: str = "sentence-transformers/all-mpnet-base-v2",
+        device: str = 'cuda',
+    ) -> None:
+        self.sentence_embedding_model = sentence_embedding_model
+        self.device = device
+        self.model = SentenceTransformer(sentence_embedding_model, device=device)
+
+    def fit(self, train_df: DataFrame) -> None:
+        pass
+
+    def rerank(self, test_df: DataFrame) -> List[RankedAnswersDict]:
+        results = []
+        groups = test_df.groupby("id")
+        for question_id, group in tqdm(groups, total=len(test_df["id"].unique())):
+            question_embeddin = self.model.encode(group['question'].iloc[0])
+
+            answers = list(dict.fromkeys(group["model_answers"].iloc[0]).keys())
+            answers_embedding = self.model.encode(answers)
+
+            scores = util.cos_sim(question_embeddin, answers_embedding).numpy()[0]
+
+            order_by_scores = np.argsort(scores)[::-1]
+            ranked_answers = [
+                RankedAnswer(
+                    AnswerEntityID=None,
+                    AnswerString=answer,
+                    Score=float(score),
+                )
+                for answer, score in zip(np.array(answers)[order_by_scores], scores[order_by_scores])
+            ]
+
+            results.append(
+                RankedAnswersDict(
+                    QuestionID=question_id,
+                    RankedAnswers=ranked_answers,
+                )
+            )
+
         return results
