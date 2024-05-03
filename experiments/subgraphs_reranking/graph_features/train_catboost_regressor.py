@@ -1,9 +1,10 @@
 """train catboost regressor for reranking"""
 import argparse
 from pathlib import Path
+import joblib
 import numpy as np
 from datasets import load_dataset
-from sklearn import preprocessing
+from sklearn import preprocessing, utils
 from catboost import Pool, CatBoostRegressor
 import matplotlib.pyplot as plt
 
@@ -16,7 +17,14 @@ parse.add_argument(
 parse.add_argument(
     "--kgqa_ds_path",
     type=str,
-    default="hle2000/KGQA_T5-large-ssm",
+    default="s-nlp/KGQASubgraphsRanking",
+    help="Path to train sequence data file (HF)",
+)
+parse.add_argument(
+    "--ds_type",
+    type=str,
+    default="t5xlssm",
+    choices=["t5largessm", "t5xlssm", "mistral", "mixtral"],
     help="Path to train sequence data file (HF)",
 )
 parse.add_argument(
@@ -25,12 +33,7 @@ parse.add_argument(
     default="/workspace/storage/misc/huggingface",
     help="path for the results folder ",
 )
-parse.add_argument(
-    "--num_iters",
-    type=int,
-    default=100000,
-    help="number of iterations for catboost",
-)
+
 parse.add_argument(
     "--early_stopping_rounds",
     type=int,
@@ -90,24 +93,13 @@ def apply_col_scale(dataframe, col, scaler, split_type):
     return dataframe
 
 
-def process_numeric_features(train, val, cols):
+def process_numeric_features(train, val, cols, save_scaler_path):
     """process all numerical features (scaling) for train & val"""
     scaler = preprocessing.MinMaxScaler()
     train = apply_col_scale(train, cols, scaler, "train")
     val = apply_col_scale(val, cols, scaler, "validation")
+    joblib.dump(scaler, save_scaler_path)
     return train, val
-
-
-def find_weight(target):
-    """find weight for imbalanced classification"""
-    class_sample_count = np.array(
-        [len(np.where(target == t)[0]) for t in np.unique(target)]
-    )
-    weight = 1.0 / class_sample_count
-    samples_weight = np.array([weight[int(t)] for t in target])
-
-    samples_weight = np.double(samples_weight)
-    return samples_weight
 
 
 def plot_features_importance(trained_model, val_ds, features, path):
@@ -121,13 +113,15 @@ def plot_features_importance(trained_model, val_ds, features, path):
 
 if __name__ == "__main__":
     args = parse.parse_args()
-    ds_type = args.kgqa_ds_path.split("-")[1]
-    save_path = (
-        Path(args.save_folder_path) / Path(f"T5-{ds_type}-ssm") / Path(args.run_name)
-    )
+    ds_type = args.ds_type
+    save_path = Path(args.save_folder_path) / Path(ds_type) / Path(args.run_name)
     Path(save_path).mkdir(parents=True, exist_ok=True)
 
-    graph_features_ds = load_dataset(args.kgqa_ds_path, args.hf_cache_dir)
+    graph_features_ds = load_dataset(
+        args.kgqa_ds_path,
+        data_dir=f"{ds_type}_subgraphs",
+        cache_dir=args.hf_cache_dir,
+    )
     train_df = graph_features_ds["train"].to_pandas()
     val_df = graph_features_ds["validation"].to_pandas()
 
@@ -146,7 +140,10 @@ if __name__ == "__main__":
 
     if args.use_graph_features:  # add & process numeric features if needed
         train_df, val_df = process_numeric_features(
-            train_df, val_df, features_map["graph"]
+            train_df,
+            val_df,
+            features_map["graph"],
+            Path(save_path) / "fitted_scaler.bz2",
         )
         all_features_used += features_map["graph"]
 
@@ -156,12 +153,21 @@ if __name__ == "__main__":
     y_train = train_df["correct"].astype(float).tolist()
     y_test = val_df["correct"].astype(float).tolist()
 
+    # find weights for balance classification
+    train_classes = np.unique(y_train)
+    train_weights = utils.compute_class_weight(
+        class_weight="balanced", classes=train_classes, y=y_train
+    )
+    train_class_weights = np.array(y_test)
+    train_class_weights[train_class_weights == 0] = train_weights[0]
+    train_class_weights[train_class_weights == 1] = train_weights[1]
+
     learn_pool = Pool(
         X_train,
         y_train,
         feature_names=list(X_train),
         embedding_features=embedding_features,
-        weight=find_weight(y_train),
+        weight=train_class_weights,
     )
 
     val_pool = Pool(
@@ -181,11 +187,10 @@ if __name__ == "__main__":
     grid_search_result = model.grid_search(params, learn_pool)
 
     model = CatBoostRegressor(
-        iterations=args.num_iters,
+        iterations=grid_search_result["params"]["iterations"],
         learning_rate=grid_search_result["params"]["learning_rate"],
         depth=grid_search_result["params"]["depth"],
-        l2_leaf_reg=grid_search_result["params"]["l2_leaf_reg"],
-        # task_type="GPU",
+        task_type="GPU",
         early_stopping_rounds=args.early_stopping_rounds,
         eval_metric="RMSE",
     )

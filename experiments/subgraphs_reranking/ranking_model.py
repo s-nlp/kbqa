@@ -2,7 +2,7 @@
 import random
 from abc import ABC, abstractmethod
 from typing import List, TypedDict
-
+import joblib
 import numpy as np
 import torch
 from pandas import DataFrame
@@ -148,13 +148,29 @@ class RankerBase(Ranker):
 class LogisticRegressionRanker(RankerBase):
     """reranker for LogisticRegression"""
 
-    def __init__(self, features_to_use: list):
-        self.features_to_use = features_to_use
+    def __init__(self, **kwargs):
+        """sequence features q_a and/or g2t_determ, g2t_t5, g2t"""
+        self.sequence_features = kwargs.get("sequence_features", [])
+        self.graph_features = kwargs.get("graph_features", [])
+        self.features_to_use = self.sequence_features + self.graph_features
         self.model = None
+        self.fitted_scaler = None
 
     def fit(self, train_df: DataFrame, **kwargs) -> None:
         """fit LogReg on train_df"""
         train_df = train_df.dropna(subset=["graph"])
+
+        #  scale graph features if we scaler arg is not none
+        scaler = kwargs.get("scaler")
+        if scaler:
+            if len(self.graph_features) == 0:
+                raise ValueError(
+                    "Scaler indicated with no numeric/graph features to scale."
+                )
+            train_df[self.graph_features] = scaler.fit_transform(
+                train_df[self.graph_features]
+            )
+            self.fitted_scaler = scaler  # save fitted scaler
 
         x_train = df_to_features_array(train_df[self.features_to_use])
         y_train = train_df["correct"].astype(np.float16)
@@ -171,6 +187,11 @@ class LogisticRegressionRanker(RankerBase):
         output the predictions in the specified format above"""
         if self.model is None:
             raise NotFittedError("This ranker model is not fitted yet.")
+
+        if self.fitted_scaler:  # fit if we have a scaler
+            test_df[self.graph_features] = self.fitted_scaler.transform(
+                test_df[self.graph_features]
+            )
 
         results = []
         for question_id, group in test_df.groupby("id"):
@@ -196,13 +217,28 @@ class LogisticRegressionRanker(RankerBase):
 class LinearRegressionRanker(RankerBase):
     """reranker for LinearRegression"""
 
-    def __init__(self, features_to_use: list):
-        self.features_to_use = features_to_use
+    def __init__(self, **kwargs):
+        self.sequence_features = kwargs.get("sequence_features", [])
+        self.graph_features = kwargs.get("graph_features", [])
+        self.features_to_use = self.sequence_features + self.graph_features
         self.model = None
+        self.fitted_scaler = None
 
     def fit(self, train_df: DataFrame, **kwargs) -> None:
         """fit LinReg on train_df"""
         train_df = train_df.dropna(subset=["graph"])
+
+        #  scale graph features if we scaler arg is not none
+        scaler = kwargs.get("scaler")
+        if scaler:
+            if len(self.graph_features) == 0:
+                raise ValueError(
+                    "Scaler indicated with no numeric/graph features to scale."
+                )
+            train_df[self.graph_features] = scaler.fit_transform(
+                train_df[self.graph_features]
+            )
+            self.fitted_scaler = scaler  # save fitted scaler
 
         x_train = df_to_features_array(train_df[self.features_to_use])
         y_train = train_df["correct"].astype(np.float16)
@@ -217,6 +253,11 @@ class LinearRegressionRanker(RankerBase):
         output the predictions in the specified format above"""
         if self.model is None:
             raise NotFittedError("This ranker model is not fitted yet.")
+
+        if self.fitted_scaler:  # fit graph features if we have a scaler
+            test_df[self.graph_features] = self.fitted_scaler.transform(
+                test_df[self.graph_features]
+            )
 
         results = []
         for question_id, group in test_df.groupby("id"):
@@ -309,16 +350,31 @@ class MPNetRanker(RankerBase):
 class CatboostRanker(RankerBase):
     """reranker for Catboost"""
 
-    def __init__(self, model_path, features_to_use: list):
-        self.features_to_use = features_to_use
-        self.model = None
+    def __init__(self, model_path, **kwargs):
+        self.sequence_features = kwargs.get("sequence_features", [])
+        self.graph_features = kwargs.get("graph_features", [])
+        self.features_to_use = self.sequence_features + self.graph_features
 
+        self.model = None
         try:
             print("Trying to load the model...")
             self.model = CatBoostRegressor().load_model(model_path)
             print("Model Loaded.")
         except Exception as exception:  # pylint: disable=broad-except
             print(f"Failed to load model: {exception}")
+
+        self.fitted_scaler = None
+        scaler_path = kwargs.get("scaler_path", None)
+        if scaler_path:
+            try:
+                print("Trying to load the fitted scaler...")
+                self.fitted_scaler = joblib.load(scaler_path)
+                if len(self.graph_features) == 0:
+                    raise ValueError(
+                        "Scaler indicated with no numeric/graph features to scale."
+                    )
+            except Exception as exception:  # pylint: disable=broad-except
+                print(f"Failed to load fitted scaler: {exception}")
 
     def fit(self, train_df: DataFrame, **kwargs) -> None:
         raise NotImplementedError()
@@ -328,6 +384,11 @@ class CatboostRanker(RankerBase):
         predictions in the specified format above"""
         if self.model is None:
             raise NotFittedError("This ranker model is not fitted yet.")
+
+        if self.fitted_scaler:  # fit graph features if we have a scaler
+            test_df[self.graph_features] = self.fitted_scaler.transform(
+                test_df[self.graph_features]
+            )
 
         results = []
         groups = test_df.groupby("id")
