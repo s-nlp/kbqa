@@ -37,7 +37,7 @@ parse.add_argument(
 parse.add_argument(
     "--early_stopping_rounds",
     type=int,
-    default=1000,
+    default=400,
     help="number of iterations for catboost",
 )
 parse.add_argument(
@@ -105,10 +105,9 @@ def process_numeric_features(train, val, cols, save_scaler_path):
 def plot_features_importance(trained_model, val_ds, features, path):
     """plot the features importance and save to path"""
     features_importance = trained_model.get_feature_importance(data=val_ds)
-
     plt.barh(features, features_importance)
     plt.tight_layout()
-    plt.savefig(path)
+    plt.savefig(path, bbox_inches="tight")
 
 
 if __name__ == "__main__":
@@ -190,7 +189,6 @@ if __name__ == "__main__":
         iterations=grid_search_result["params"]["iterations"],
         learning_rate=grid_search_result["params"]["learning_rate"],
         depth=grid_search_result["params"]["depth"],
-        task_type="GPU",
         early_stopping_rounds=args.early_stopping_rounds,
         eval_metric="RMSE",
     )
@@ -199,5 +197,5 @@ if __name__ == "__main__":
 
     # plot and save features importance
     col_names = X_test.columns.tolist()
-    save_path = plt.savefig(Path(save_path) / "features_importance.png")
+    save_path = Path(save_path) / "features_importance.png"
     plot_features_importance(model, val_pool, col_names, save_path)

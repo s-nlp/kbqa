@@ -1,7 +1,7 @@
 """model class for all rerankers approach"""
 import random
 from abc import ABC, abstractmethod
-from typing import List, TypedDict
+from typing import List, TypedDict, Optional
 import joblib
 import numpy as np
 import torch
@@ -148,10 +148,14 @@ class RankerBase(Ranker):
 class LogisticRegressionRanker(RankerBase):
     """reranker for LogisticRegression"""
 
-    def __init__(self, **kwargs):
+    def __init__(
+        self,
+        sequence_features: Optional[list] = None,
+        graph_features: Optional[list] = None,
+    ):
         """sequence features q_a and/or g2t_determ, g2t_t5, g2t"""
-        self.sequence_features = kwargs.get("sequence_features", [])
-        self.graph_features = kwargs.get("graph_features", [])
+        self.sequence_features = sequence_features if sequence_features else []
+        self.graph_features = graph_features if graph_features else []
         self.features_to_use = self.sequence_features + self.graph_features
         self.model = None
         self.fitted_scaler = None
@@ -217,9 +221,13 @@ class LogisticRegressionRanker(RankerBase):
 class LinearRegressionRanker(RankerBase):
     """reranker for LinearRegression"""
 
-    def __init__(self, **kwargs):
-        self.sequence_features = kwargs.get("sequence_features", [])
-        self.graph_features = kwargs.get("graph_features", [])
+    def __init__(
+        self,
+        sequence_features: Optional[list] = None,
+        graph_features: Optional[list] = None,
+    ):
+        self.sequence_features = sequence_features if sequence_features else []
+        self.graph_features = graph_features if graph_features else []
         self.features_to_use = self.sequence_features + self.graph_features
         self.model = None
         self.fitted_scaler = None
@@ -303,7 +311,9 @@ class MPNetRanker(RankerBase):
             print(f"Failed to load model: {exception}")
 
     def fit(self, train_df: DataFrame, **kwargs) -> None:
-        raise NotImplementedError()
+        raise NotImplementedError(
+            "No fit function for MPNET. Model should be trained already."
+        )
 
     def rerank(self, test_df: DataFrame) -> List[RankedAnswersDict]:
         """given test_df, rerank using the trained model and output the
@@ -350,9 +360,15 @@ class MPNetRanker(RankerBase):
 class CatboostRanker(RankerBase):
     """reranker for Catboost"""
 
-    def __init__(self, model_path, **kwargs):
-        self.sequence_features = kwargs.get("sequence_features", [])
-        self.graph_features = kwargs.get("graph_features", [])
+    def __init__(
+        self,
+        model_path,
+        sequence_features: Optional[list] = None,
+        graph_features: Optional[list] = None,
+        scaler_path: Optional[str] = None,
+    ):
+        self.sequence_features = sequence_features if sequence_features else []
+        self.graph_features = graph_features if graph_features else []
         self.features_to_use = self.sequence_features + self.graph_features
 
         self.model = None
@@ -364,7 +380,6 @@ class CatboostRanker(RankerBase):
             print(f"Failed to load model: {exception}")
 
         self.fitted_scaler = None
-        scaler_path = kwargs.get("scaler_path", None)
         if scaler_path:
             try:
                 print("Trying to load the fitted scaler...")
@@ -377,7 +392,9 @@ class CatboostRanker(RankerBase):
                 print(f"Failed to load fitted scaler: {exception}")
 
     def fit(self, train_df: DataFrame, **kwargs) -> None:
-        raise NotImplementedError()
+        raise NotImplementedError(
+            "No fit function for CatBoost. Model should be trained already."
+        )
 
     def rerank(self, test_df: DataFrame) -> List[RankedAnswersDict]:
         """given test_df, rerank using the trained model and output the
