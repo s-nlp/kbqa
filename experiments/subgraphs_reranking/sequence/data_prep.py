@@ -15,7 +15,7 @@ from tqdm import tqdm
 
 parse = argparse.ArgumentParser()
 parse.add_argument(
-    "model_name",
+    "--model_name",
     type=str,
     default="sentence-transformers/all-mpnet-base-v2",
     help="HF model name for AutoModelForSequenceClassification",
@@ -24,21 +24,35 @@ parse.add_argument(
 parse.add_argument(
     "--data_path",
     type=str,
-    default="hle2000/Mintaka_Subgraphs_T5_xl_ssm",
+    default="hle2000/Mintaka_Subgraphs_T5_large_ssm",
     help="Path to train JSONL file",
 )
 
 parse.add_argument(
     "--g2t_train_path",
     type=str,
-    default="/workspace/storage/misc/train_results_mintaka_xl.yaml",
+    default="/workspace/storage/misc/train_results_mintaka_T5Large.yaml",
     help="Path to g2t train yaml file",
 )
 
 parse.add_argument(
     "--g2t_test_path",
     type=str,
-    default="/workspace/storage/misc/test_results_mintaka.yaml",
+    default="/workspace/storage/misc/test_results_mintaka_T5Large.yaml",
+    help="Path to g2t test yaml file",
+)
+
+parse.add_argument(
+    "--gap_train_path",
+    type=str,
+    default="/workspace/storage/misc/gap_train_mintaka_large_predictions.txt",
+    help="Path to g2t train yaml file",
+)
+
+parse.add_argument(
+    "--gap_test_path",
+    type=str,
+    default="/workspace/storage/misc/gap_test_mintaka_large_predictions.txt",
     help="Path to g2t test yaml file",
 )
 
@@ -52,7 +66,7 @@ parse.add_argument(
 parse.add_argument(
     "--hf_path",
     type=str,
-    default="hle2000/test",
+    default="hle2000/Mintaka_Updated_Sequences_T5-large-ssm",
     help="path to upload to HuggingFace",
 )
 
@@ -67,18 +81,33 @@ def tokenizer_model(model_name, dev):
     return tok, mod
 
 
-def add_new_seqs(path, dataframe):
-    """get the new seqs from yaml and add to df"""
-    with open(path, "r", encoding="utf-8") as stream:
+def get_g2t_seqs(g2t_path):
+    """proccess the g2t yaml file and return list of g2t seqs"""
+    with open(g2t_path, "r", encoding="utf-8") as stream:
         try:
-            new_seqs = yaml.safe_load(stream)
+            g2t_seqs_raw = yaml.safe_load(stream)
         except yaml.YAMLError as exc:
             print(exc)
+    g2t_seqs = []
+    for curr_seq in g2t_seqs_raw["data"]:
+        g2t_seqs.append(curr_seq["predicted"])
+    return g2t_seqs
 
-    updated_seqs = []
-    for curr_seq in new_seqs["data"]:
-        updated_seqs.append(curr_seq["predicted"])
-    dataframe["updated_sequence"] = updated_seqs
+
+def get_gap_seqs(gap_path):
+    """proccess the gap txt file and return list of g2t seqs"""
+    with open(gap_path, "r", encoding="utf-8") as file:
+        gap_seqs = file.read().splitlines()
+    return gap_seqs
+
+
+def add_new_seqs(g2t_path, gap_path, dataframe):
+    """get the new g2t and gap seqs and add to df"""
+    g2t_seqs = get_g2t_seqs(g2t_path)
+    gap_seqs = get_gap_seqs(gap_path)
+
+    dataframe["g2t_sequence"] = g2t_seqs
+    dataframe["gap_sequence"] = gap_seqs
     return dataframe
 
 
@@ -178,7 +207,7 @@ def get_sequences(
 
 
 def preproc_updated_sequences(
-    dataframe, tok, candidate_start_token, candidate_end_token
+    dataframe, seq_type, tok, candidate_start_token, candidate_end_token
 ):
     """return highlighted and non-highlighted sequence"""
     no_hl_seqs, hl_seqs = [], []
@@ -186,7 +215,7 @@ def preproc_updated_sequences(
         graph_obj = nx.readwrite.json_graph.node_link_graph(
             try_literal_eval(group["graph"])
         )
-        updated_seq = group["updated_sequence"]
+        updated_seq = group[seq_type]
 
         try:
             ans_ent_label = find_label(graph_obj, group["answerEntity"])
@@ -212,25 +241,34 @@ def data_df_convert(dataframe, tok, candidate_start_token, candidate_end_token):
 
     # processing the updated g2t sequence
     no_hl_seqs, hl_seqs = preproc_updated_sequences(
-        dataframe, tok, candidate_start_token, candidate_end_token
+        dataframe, "g2t_sequence", tok, candidate_start_token, candidate_end_token
     )
-    dataframe["highlighted_updated_sequence"] = hl_seqs
-    dataframe["no_highlighted_updated_sequence"] = no_hl_seqs
+    dataframe["highlighted_g2t_sequence"] = hl_seqs
+    dataframe["no_highlighted_g2t_sequence"] = no_hl_seqs
 
-    # processing the determ sequence
+    # processing the updated gap sequence
+    no_hl_seqs, hl_seqs = preproc_updated_sequences(
+        dataframe, "gap_sequence", tok, candidate_start_token, candidate_end_token
+    )
+    dataframe["highlighted_gap_sequence"] = hl_seqs
+    dataframe["no_highlighted_gap_sequence"] = no_hl_seqs
+
+    # processing the determ. sequence
     no_hl_graph_seq, hl_graph_seq = get_sequences(
         dataframe, tok, candidate_start_token, candidate_end_token
     )
-    dataframe["highlighted_sequence"] = hl_graph_seq
-    dataframe["no_highlighted_sequence"] = no_hl_graph_seq
+    dataframe["highlighted_determ_sequence"] = hl_graph_seq
+    dataframe["no_highlighted_determ_sequence"] = no_hl_graph_seq
 
     # filter out all invalid entries
     dataframe = dataframe.dropna(
         subset=[
-            "highlighted_updated_sequence",
-            "no_highlighted_updated_sequence",
-            "highlighted_sequence",
-            "no_highlighted_sequence",
+            "highlighted_g2t_sequence",
+            "no_highlighted_g2t_sequence",
+            "highlighted_gap_sequence",
+            "no_highlighted_gap_sequence",
+            "highlighted_determ_sequence",
+            "no_highlighted_determ_sequence",
         ]
     )
     return dataframe
@@ -247,8 +285,8 @@ if __name__ == "__main__":
     test_df = subgraphs_dataset["test"].to_pandas()
 
     # adding the new g2t sequences to subgraph dataset
-    train_df = add_new_seqs(args.g2t_train_path, train_df)
-    test_df = add_new_seqs(args.g2t_test_path, test_df)
+    train_df = add_new_seqs(args.g2t_train_path, args.gap_train_path, train_df)
+    test_df = add_new_seqs(args.g2t_test_path, args.gap_test_path, test_df)
 
     # getting the final dataset
     CANDIDATE_START_TOKEN = "[unused1]"

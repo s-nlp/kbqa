@@ -1,10 +1,12 @@
 """train catboost regressor for reranking"""
 import argparse
 from pathlib import Path
+import joblib
 import numpy as np
 from datasets import load_dataset
-from sklearn import preprocessing
+from sklearn import preprocessing, utils
 from catboost import Pool, CatBoostRegressor
+import matplotlib.pyplot as plt
 
 parse = argparse.ArgumentParser()
 parse.add_argument(
@@ -13,205 +15,187 @@ parse.add_argument(
     help="folder name inside output_path for storing model. Also used for wandb",
 )
 parse.add_argument(
-    "--features_data_path",
+    "--kgqa_ds_path",
     type=str,
-    default="s-nlp/Mintaka_Graph_Features_T5-xl-ssm",
+    default="s-nlp/KGQASubgraphsRanking",
     help="Path to train sequence data file (HF)",
 )
 parse.add_argument(
-    "--with_tfidf",
-    type=bool,
-    default=False,
-    help="to whether or not use TDA tfidf to train",
+    "--ds_type",
+    type=str,
+    default="t5xlssm",
+    choices=["t5largessm", "t5xlssm", "mistral", "mixtral"],
+    help="Path to train sequence data file (HF)",
 )
 parse.add_argument(
-    "--num_iters",
-    type=int,
-    default=100000,
-    help="number of iterations for catboost",
+    "--hf_cache_dir",
+    type=str,
+    default="/workspace/storage/misc/huggingface",
+    help="path for the results folder ",
 )
+
 parse.add_argument(
     "--early_stopping_rounds",
     type=int,
-    default=1000,
+    default=400,
     help="number of iterations for catboost",
 )
 parse.add_argument(
     "--save_folder_path",
     type=str,
-    default="/workspace/storage/misc/features_reranking",
+    default="/workspace/storage/misc/features_reranking/catboost/unified_reranking",
     help="path for the results folder ",
+)
+parse.add_argument(
+    "--use_text_features",
+    type=bool,
+    default=True,
+    help="To whether use the text features or not",
+)
+parse.add_argument(
+    "--use_graph_features",
+    type=bool,
+    default=True,
+    help="To whether use the graph features or not",
 )
 parse.add_argument(
     "--sequence_type",
     type=str,
-    default="g2t",
-    choices=["g2t", "determ", "gap", "all"],
-    help="path for the results folder ",
+    default="g2t_gap",
+    choices=["g2t_t5", "g2t_determ", "g2t_gap", "none"],
+    help="to whether use g2t sequences (t5, determ or gap) or not (none)",
 )
 
-
-def filter_df_sequence(dataframe, seq_type):
-    """filter df base on the sequence type,
-    return filtered df & textual + embedding features"""
-
-    textual_feat = ["determ_sequence", "g2t_sequence", "gap_sequence"]
-    if seq_type != "all":
-        if seq_type == "g2t":
-            rm_lst = ["determ_sequence", "gap_sequence"]
-        elif seq_type == "determ":
-            rm_lst = ["g2t_sequence", "gap_sequence"]
-        elif seq_type == "gap":
-            rm_lst = ["determ_sequence", "g2t_sequence"]
-        drop_text_cols = [item for item in textual_feat if item in rm_lst]
-        drop_em_cols = [f"{feat}_embedding" for feat in drop_text_cols]
-        dataframe = dataframe.drop(drop_text_cols + drop_em_cols, axis=1)
-        textual_feat = [f"{seq_type}_sequence"]
-        emb_feat = [f"{seq_type}_sequence_embedding"]
-    else:
-        emb_feat = [f"{feat}_embedding" for feat in textual_feat]
-
-    return dataframe, textual_feat, emb_feat
+features_map = {
+    "text": ["question_answer_embedding"],
+    "graph": [
+        "num_nodes",
+        "num_edges",
+        "density",
+        "cycle",
+        "bridge",
+        "katz_centrality",
+        "page_rank",
+        "avg_ssp_length",
+    ],
+    "g2t_determ": ["determ_sequence_embedding"],
+    "g2t_t5": ["t5_sequence_embedding"],
+    "g2t_gap": ["gap_sequence_embedding"],
+}
 
 
-def str_to_arr(strng):
-    """str to arr"""
-    arr = strng.split(",")
-    arr = [float(a) for a in arr]
-    return np.array(arr)
-
-
-def apply_col_scale(dataframe, col, scaler):
-    """apply min max scaling"""
-    dataframe[col] = scaler.fit_transform(dataframe[col])
+def apply_col_scale(dataframe, col, scaler, split_type):
+    """apply min max scaling to the specified columns"""
+    if split_type == "train":  # train -> fit_transform
+        dataframe[col] = scaler.fit_transform(dataframe[col])
+    else:  # val or test -> just transform
+        dataframe[col] = scaler.transform(dataframe[col])
     return dataframe
 
 
-def get_numeric_cols(dataframe):
-    """return all cols with numeric features"""
-    cols_numeric = []
-    for col_name, col_type in dataframe.dtypes.to_dict().items():
-        if (
-            col_type is np.dtype("int64") or col_type is np.dtype("float64")
-        ) and col_name != "correct":
-            cols_numeric.append(col_name)
-
-    return cols_numeric
+def process_numeric_features(train, val, cols, save_scaler_path):
+    """process all numerical features (scaling) for train & val"""
+    scaler = preprocessing.MinMaxScaler()
+    train = apply_col_scale(train, cols, scaler, "train")
+    val = apply_col_scale(val, cols, scaler, "validation")
+    joblib.dump(scaler, save_scaler_path)
+    return train, val
 
 
-def process_text_features(train, test, text_feat):
-    """process all text features"""
-    for feat in text_feat:
-        train[feat] = train[feat].astype("string")
-        train[feat] = train[feat].astype("string")
-    return train, test
-
-
-def process_numeric_features(train, test):
-    """process all numerical features (scaling)"""
-    min_max_scaler = preprocessing.MinMaxScaler()
-    train_numeric_cols = get_numeric_cols(train)
-    test_numeric_cols = get_numeric_cols(test)
-
-    train = apply_col_scale(train, train_numeric_cols, min_max_scaler)
-    test = apply_col_scale(test, test_numeric_cols, min_max_scaler)
-    return train, test
-
-
-def process_embedding_features(train, test, embedding_features, with_tdidf):
-    """proccess all embedding features"""
-    if not with_tdidf:
-        train = train.drop("tfidf_vector", axis=1)
-        test = test.drop("tfidf_vector", axis=1)
-    else:  # with tfidf
-        embedding_features.append("tfidf_vector")
-
-    for curr_feat in embedding_features:
-        train[curr_feat] = train[curr_feat].apply(str_to_arr)
-        test[curr_feat] = test[curr_feat].apply(str_to_arr)
-    return train, test, embedding_features
-
-
-def find_weight(target):
-    """find weight for imbalanced classification"""
-    class_sample_count = np.array(
-        [len(np.where(target == t)[0]) for t in np.unique(target)]
-    )
-    weight = 1.0 / class_sample_count
-    samples_weight = np.array([weight[int(t)] for t in target])
-
-    samples_weight = np.double(samples_weight)
-    return samples_weight
+def plot_features_importance(trained_model, val_ds, features, path):
+    """plot the features importance and save to path"""
+    features_importance = trained_model.get_feature_importance(data=val_ds)
+    plt.barh(features, features_importance)
+    plt.tight_layout()
+    plt.savefig(path, bbox_inches="tight")
 
 
 if __name__ == "__main__":
     args = parse.parse_args()
-    save_path = Path(args.save_folder_path) / Path(args.run_name)
+    ds_type = args.ds_type
+    save_path = Path(args.save_folder_path) / Path(ds_type) / Path(args.run_name)
     Path(save_path).mkdir(parents=True, exist_ok=True)
 
-    graph_features_ds = load_dataset(args.features_data_path)
+    graph_features_ds = load_dataset(
+        args.kgqa_ds_path,
+        data_dir=f"{ds_type}_subgraphs",
+        cache_dir=args.hf_cache_dir,
+    )
     train_df = graph_features_ds["train"].to_pandas()
-    test_df = graph_features_ds["test"].to_pandas()
+    val_df = graph_features_ds["validation"].to_pandas()
 
-    # process numeric features
-    train_df, test_df = process_numeric_features(train_df, test_df)
+    # list of all features that we will use for this approach
+    all_features_used = []
 
-    # filter dataset based on which seq type and process textual features
-    text_features = ["question_answer"]
-    emb_features = ["question_answer_embedding"]
-    train_df, textual_feats, embd_feats = filter_df_sequence(
-        train_df, args.sequence_type
+    # process embedding features
+    embedding_features = []
+    if args.use_text_features:  # add text feature if needed
+        embedding_features += features_map["text"]
+        all_features_used += features_map["text"]
+
+    if args.sequence_type != "none":  # add g2t seq feature if needed
+        embedding_features += features_map[args.sequence_type]
+        all_features_used += features_map[args.sequence_type]
+
+    if args.use_graph_features:  # add & process numeric features if needed
+        train_df, val_df = process_numeric_features(
+            train_df,
+            val_df,
+            features_map["graph"],
+            Path(save_path) / "fitted_scaler.bz2",
+        )
+        all_features_used += features_map["graph"]
+
+    # prepare train & val data based on features we want to use
+    X_train = train_df[all_features_used]
+    X_test = val_df[all_features_used]
+    y_train = train_df["correct"].astype(float).tolist()
+    y_test = val_df["correct"].astype(float).tolist()
+
+    # find weights for balance classification
+    train_classes = np.unique(y_train)
+    train_weights = utils.compute_class_weight(
+        class_weight="balanced", classes=train_classes, y=y_train
     )
-    test_df, _, _ = filter_df_sequence(test_df, args.sequence_type)
-    text_features += textual_feats
-    emb_features += embd_feats
-    train_df, test_df = process_text_features(train_df, test_df, text_features)
-
-    # process the embedding features
-    train_df, test_df, emb_features = process_embedding_features(
-        train_df, test_df, emb_features, args.with_tfidf
-    )
-
-    X_train = train_df.drop(["correct", "question"], axis=1)
-    X_test = test_df.drop(["correct", "question"], axis=1)
-    y_train = train_df["correct"].tolist()
-    y_test = test_df["correct"].tolist()
+    train_class_weights = np.array(y_test)
+    train_class_weights[train_class_weights == 0] = train_weights[0]
+    train_class_weights[train_class_weights == 1] = train_weights[1]
 
     learn_pool = Pool(
         X_train,
         y_train,
-        text_features=text_features,
         feature_names=list(X_train),
-        embedding_features=emb_features,
-        weight=find_weight(y_train),
+        embedding_features=embedding_features,
+        weight=train_class_weights,
     )
 
-    test_pool = Pool(
+    val_pool = Pool(
         X_test,
         y_test,
-        text_features=text_features,
         feature_names=list(X_test),
-        embedding_features=emb_features,
-        weight=find_weight(y_test),
+        embedding_features=embedding_features,
     )
 
     # hyper-params tuning
     params = {
-        "learning_rate": [0.03, 0.1],
-        "depth": [4, 6, 10],
-        "l2_leaf_reg": [5, 7, 9, 11],
+        "learning_rate": list(np.linspace(0.03, 0.3, 5)),
+        "depth": [4, 6, 8, 10],
+        "iterations": [2000, 3000, 4000],
     }
     model = CatBoostRegressor()
     grid_search_result = model.grid_search(params, learn_pool)
 
     model = CatBoostRegressor(
-        iterations=args.num_iters,
+        iterations=grid_search_result["params"]["iterations"],
         learning_rate=grid_search_result["params"]["learning_rate"],
         depth=grid_search_result["params"]["depth"],
-        l2_leaf_reg=grid_search_result["params"]["l2_leaf_reg"],
-        # task_type="GPU",
         early_stopping_rounds=args.early_stopping_rounds,
         eval_metric="RMSE",
     )
-    model.fit(learn_pool, eval_set=test_pool, verbose=200)
-    model.save_model(save_path / "best_model")
+    model.fit(learn_pool, eval_set=val_pool, verbose=200)
+    model.save_model(Path(save_path) / "best_model")
+
+    # plot and save features importance
+    col_names = X_test.columns.tolist()
+    save_path = Path(save_path) / "features_importance.png"
+    plot_features_importance(model, val_pool, col_names, save_path)
