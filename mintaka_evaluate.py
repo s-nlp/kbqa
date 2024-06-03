@@ -4,7 +4,7 @@ import json
 from tqdm.auto import tqdm
 import pandas as pd
 from datasets import load_dataset
-from pywikidata.utils import get_wd_search_results
+from kbqa.wikidata import query_wikidata_label_to_entity as lab2ent
 
 
 DESCRIPTION = """Evaluation script for mintaka ranked predictions
@@ -42,7 +42,7 @@ parser = ArgumentParser(
 parser.add_argument(
     "--predictions_path",
     help="Path to JSONL file with predictions" + EXAMPLE_OF_DATA_FORMAT,
-    default="/workspace/storage/misc/subgraphs_reranking_runs/reranking_model_results/t5_large_ssm/mpnet_highlighted_t5_sequence_reranking_seq2seq_large_2_results.jsonl",
+    default="/workspace/storage/misc/subgraphs_reranking_runs/reranking_model_results/t5_large_ssm/mpnet_highlighted_t5_sequence_reranking_seq2seq_large_results.jsonl",
 )
 
 parser.add_argument(
@@ -51,43 +51,6 @@ parser.add_argument(
     type=str,
     help="Mintaka dataset split.\ntest by default",
 )
-
-
-def label_to_entity(label: str, top_k: int = 1) -> list:
-    """label_to_entity method to  linking label to WikiData entity ID
-    by using elasticsearch Wikimedia public API
-    Supported only English language (en)
-
-    Parameters
-    ----------
-    label : str
-        label of entity to search
-    top_k : int, optional
-        top K results from WikiData, by default 1
-
-    Returns
-    -------
-    list[str] | None
-        list of entity IDs or None if not found
-    """
-    try:
-        elastic_results = get_wd_search_results(label, top_k, language="en")[:top_k]
-    except:  # pylint: disable=bare-except
-        elastic_results = []
-
-    try:
-        elastic_results.extend(
-            get_wd_search_results(
-                label.replace('"', "").replace("'", "").strip(), top_k, language="en"
-            )[:top_k]
-        )
-    except:  # pylint: disable=bare-except
-        return [None]
-
-    if len(elastic_results) == 0:
-        return [None]
-
-    return list(dict.fromkeys(elastic_results).keys())[:top_k]
 
 
 class EvalMintaka:
@@ -124,7 +87,9 @@ class EvalMintaka:
             return answer["AnswerString"] == mintaka_record["answerText"]
         else:
             if answer.get("AnswerEntityID") is None:
-                answer["AnswerEntityID"] = label_to_entity(answer["AnswerString"])[0]
+                answer["AnswerEntityID"] = lab2ent.label_to_entity(
+                    answer["AnswerString"]
+                )[0]
 
             if (
                 answer.get("AnswerEntityID") is None
