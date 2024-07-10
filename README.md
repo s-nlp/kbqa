@@ -1,5 +1,14 @@
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
+# Knowledge Graph Question Answering
+
+The main repository for projects related to KGQA techniques.
+
+* `seq2seq.py` - main entry point to tune language models, evaluate and make predictions for KGQA datasets
+* [subgraphs_dataset_creation](subgraphs_dataset_creation) - Includes scripts for mining subgraphs using iGraph.
+* [experiments/subgraphs_reranking](experiments/subgraphs_reranking) - Experiments with subgraph ranking for the "Ranking Answers using a Large Language Model and Knowledge Graph" study.
+
+
 # Development Environment
 
 ### Build and run docker
