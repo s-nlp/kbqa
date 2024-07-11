@@ -4,12 +4,24 @@
 
 The main repository for projects related to KGQA techniques.
 
-* `seq2seq.py` - main entry point to tune language models, evaluate and make predictions for KGQA datasets
+KGQA pipelines includes genraring answer candidates, entity linking, subgraphs generation, feature extractors for subgraphs and different ranking models.
+
+![big_pipeline](https://github.com/s-nlp/kbqa/assets/2613180/e092aea3-481a-492c-b714-9f3ad20deaa3)
+
+* [seq2seq.py](seq2seq.py) - main entry point to tune language models, evaluate and make predictions for KGQA datasets
 * [subgraphs_dataset_creation](subgraphs_dataset_creation) - Includes scripts for mining subgraphs using iGraph.
 * [experiments/subgraphs_reranking](experiments/subgraphs_reranking) - Experiments with subgraph ranking for the "Ranking Answers using a Large Language Model and Knowledge Graph" study.
+* [kbqa/entity_linkink](kbqa/entity_linkink) - Entity Linking and Entity selection methods
+* [kbqa/wikidata](kbqa/wikidata) - Utils for working with Wikidata KG
+
+## Contacts
+
+If you find some issue, do not hesitate to add it to [Github Issues](https://github.com/s-nlp/kbqa/issues).
+
+For any questions please contact: Mikhail Salnikov (salnikov@airi.net)
 
 
-# Development Environment
+## Development Environment
 
 ### Build and run docker
 ```bash
