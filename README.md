@@ -20,6 +20,17 @@ If you find some issue, do not hesitate to add it to [Github Issues](https://git
 
 For any questions please contact: Mikhail Salnikov (salnikov@airi.net)
 
+### Contributors
+
+* Mikhail Salnikov ([salnikov@airi.net](mailto:salnikov@airi.net))
+* Hai Le ([Hai.Le@skol.tech](mailto:Hai.Le@skol.tech))
+* Olga Tsymboi
+* Ivan Lazichny
+* Dmitri Jarosh
+* Egor Cheremiskin
+* Dmitry Simakov ([dmitryevsimakov@gmail.com](mailto:dmitryevsimakov@gmail.com))
+* Maksim Savchenko ([savvvan@gmail.com](mailto:savvvan@gmail.com))
+* Alexander Panchenko
 
 ## Development Environment
 
