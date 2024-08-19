@@ -22,42 +22,42 @@ parse.add_argument(
 )
 
 parse.add_argument(
-    "--g2t_train_path",
+    "--g2t_t5_train_path",
     type=str,
     default="/workspace/storage/misc/train_results_mintaka_T5XL.yaml",
     help="Path to g2t train yaml file",
 )
 
 parse.add_argument(
-    "--g2t_test_path",
+    "--g2t_t5_test_path",
     type=str,
     default="/workspace/storage/misc/test_results_mintaka_T5Large.yaml",
     help="Path to g2t test yaml file",
 )
 
 parse.add_argument(
-    "--g2t_val_path",
+    "--g2t_t5_val_path",
     type=str,
     default="/workspace/storage/misc/val_results_t5_xl.yaml",
     help="Path to g2t test yaml file",
 )
 
 parse.add_argument(
-    "--gap_train_path",
+    "--g2t_gap_train_path",
     type=str,
     default="/workspace/storage/misc/gap_train_mintaka_large_predictions.txt",
     help="Path to g2t train yaml file",
 )
 
 parse.add_argument(
-    "--gap_test_path",
+    "--g2t_gap_test_path",
     type=str,
     default="/workspace/storage/misc/gap_test_mintaka_large_predictions.txt",
     help="Path to g2t test yaml file",
 )
 
 parse.add_argument(
-    "--gap_val_path",
+    "--g2t_gap_val_path",
     type=str,
     default="/workspace/storage/misc/gap_val_mintaka_t5_xl_filtered_predictions.txt",
     help="Path to g2t test yaml file",
@@ -73,7 +73,7 @@ parse.add_argument(
 parse.add_argument(
     "--hf_path",
     type=str,
-    default="hle2000/Mintaka_Graph_Features_Updated_T5-large-ssm",
+    default="hle2000/Mintaka_Graph_Features_T5-large-ssm",
     help="path to upload to HuggingFace",
 )
 
@@ -286,9 +286,9 @@ if __name__ == "__main__":
     test_df = subgraphs_dataset["test"].to_pandas()
 
     # adding the new g2t sequences to subgraph dataset
-    train_df = add_new_seqs(args.g2t_train_path, args.gap_train_path, train_df)
-    test_df = add_new_seqs(args.g2t_test_path, args.gap_test_path, test_df)
-    val_df = add_new_seqs(args.g2t_val_path, args.gap_val_path, val_df)
+    train_df = add_new_seqs(args.g2t_t5_train_path, args.g2t_gap_train_path, train_df)
+    test_df = add_new_seqs(args.g2t_t5_test_path, args.g2t_gap_test_path, test_df)
+    val_df = add_new_seqs(args.g2t_t5_val_path, args.g2t_gap_val_path, val_df)
 
     # get all features and add to df
     smodel = SentenceTransformer("all-mpnet-base-v2")

@@ -1,0 +1,15 @@
+path: '/workspace/kbqa/experiments/graph2text/runs/webnlg_graph_to_text_t5_xxl/checkpoint-150'
+tokenizer:
+  max_length: 256
+  num_proc: 1
+trainingArguments:
+  max_answer_length: 128
+  padding: 'max_length'
+  ignore_pad_token_for_loss: True
+  useEarlyStoppingCallback: True
+  ignore_pad_token: -100
+hyperparameterArguments:
+  discrete_space: True
+  sampler: 'TPESampler'
+  pruner: 'NopPruner'
+  n_trials: 1
