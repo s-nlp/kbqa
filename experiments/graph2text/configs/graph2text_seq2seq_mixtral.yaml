@@ -1,0 +1,9 @@
+defaults:
+  - dataset: mixtral
+  - model: t5_xl_checkpoint
+  - trainer: graph2text_seq2seq_mixtral_trainer
+  - preprocessor: webnlg
+wandb:
+  use: False
+  entity: custom-qa
+  project: webnlg

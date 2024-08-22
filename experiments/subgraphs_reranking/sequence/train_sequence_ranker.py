@@ -1,4 +1,4 @@
-"""Train model for ranking subgraphs.
+"""Train model for ranking subgraphs with sequences.
 MSE Loss
 """
 import argparse
@@ -10,10 +10,14 @@ import evaluate
 import numpy as np
 import torch
 from torch.utils.data.sampler import WeightedRandomSampler
-from transformers import Trainer, TrainingArguments, GraphormerForGraphClassification
-from transformers.models.graphormer.collating_graphormer import GraphormerDataCollator
+from transformers import (
+    AutoModelForSequenceClassification,
+    AutoTokenizer,
+    Trainer,
+    TrainingArguments,
+)
 from datasets import load_dataset
-from data_utils import transform_data, GraphDataset
+
 
 torch.manual_seed(8)
 random.seed(8)
@@ -41,21 +45,21 @@ parse.add_argument(
 parse.add_argument(
     "--data_path",
     type=str,
-    default="hle2000/Mintaka_Subgraphs_T5_xl_ssm",
-    help="Path to train JSONL file",
+    default="s-nlp/KGQASubgraphsRanking",
+    help="Path to train sequence data file (HF)",
 )
 
 parse.add_argument(
     "--output_path",
     type=str,
-    default="./subgraphs_reranking_runs/",
+    default="/workspace/storage/misc/subgraphs_reranking_results",
 )
 
 parse.add_argument(
     "--model_name",
     type=str,
-    default="clefourrier/graphormer-base-pcqm4mv2",
-    help="HF model name for GraphormerForGraphClassification",
+    default="sentence-transformers/all-mpnet-base-v2",
+    help="HF model name for AutoModelForSequenceClassification",
 )
 
 parse.add_argument(
@@ -67,7 +71,7 @@ parse.add_argument(
 
 parse.add_argument(
     "--wandb_on",
-    default=False,
+    default=True,
     type=lambda x: (str(x).lower() == "true"),
     help="Using WanDB or not (True/False)",
 )
@@ -75,7 +79,7 @@ parse.add_argument(
 parse.add_argument(
     "--per_device_train_batch_size",
     type=int,
-    default=16,
+    default=32,
 )
 
 parse.add_argument(
@@ -89,12 +93,25 @@ parse.add_argument(
     type=int,
     default=6,
 )
+parse.add_argument(
+    "--do_highlighting",
+    type=lambda x: (str(x).lower() == "true"),
+    default=True,
+    help="If True, add highliting tokens for candidate in linearized graph",
+)
+
+parse.add_argument(
+    "--sequence_type",
+    type=str,
+    default="question_answer",
+    choices=["determ", "gap", "t5", "question_answer"],
+    help="Sequence type, either determ, gap, t5 or just question+answer",
+)
 
 
 def compute_metrics(eval_pred, classification_threshold):
     """custom metrics for training"""
     predictions, labels = eval_pred
-    predictions = predictions[0]
     results = METRIC_REGRESSION.compute(predictions=predictions, references=labels)
 
     predictions = predictions > classification_threshold
@@ -111,7 +128,7 @@ class CustomTrainer(Trainer):
         """get labels from train dataset"""
         labels = []
         for i in self.train_dataset:
-            labels.append(int(i["y"][0]))
+            labels.append(int(i["labels"].cpu().detach().numpy()))
         return labels
 
     def _get_train_sampler(self) -> torch.utils.data.Sampler:
@@ -134,35 +151,84 @@ class CustomTrainer(Trainer):
         return sampler
 
 
+class SequenceDataset(torch.utils.data.Dataset):
+    """Dataset class for sequences"""
+
+    def __init__(self, dataframe, tok, seq_name):
+        self.dataframe = dataframe
+        self.tok = tok
+        self.seq_name = seq_name
+
+    def __getitem__(self, idx):
+        row = self.dataframe.iloc[idx]
+        if self.seq_name == "question_answer":
+            q_a_splits = row[self.seq_name].split(";")
+            sequence = f"{q_a_splits[0]}{self.tok.sep_token}{q_a_splits[-1]}"
+        else:
+            sequence = row[self.seq_name]
+        item = self.tok(
+            sequence,
+            truncation=True,
+            padding="max_length",
+            max_length=512,
+            return_tensors="pt",
+        )
+        item["input_ids"] = item["input_ids"].view(-1)
+        item["attention_mask"] = item["attention_mask"].view(-1)
+        item["labels"] = torch.tensor(  # pylint: disable=no-member
+            row["correct"], dtype=torch.float  # pylint: disable=no-member
+        )
+        return item
+
+    def __len__(self):
+        return self.dataframe.index.size
+
+
 if __name__ == "__main__":
     args = parse.parse_args()
 
     if args.wandb_on:
         os.environ["WANDB_NAME"] = args.run_name
 
-    Path(args.output_path).mkdir(parents=True, exist_ok=True)
+    model_folder = args.data_path.split("_")[-1]  # either large or xl
+    output_path = f"{args.output_path}/{args.sequence_type}/{model_folder}"
+    Path(output_path).mkdir(parents=True, exist_ok=True)
 
     subgraphs_dataset = load_dataset(args.data_path)
     train_df = subgraphs_dataset["train"].to_pandas()
-    test_df = subgraphs_dataset["test"].to_pandas()
+    val_df = subgraphs_dataset["validation"].to_pandas()
 
-    # transform our data to graphormer format
-    transformed_train = transform_data(train_df, None)
-    transformed_test = transform_data(test_df, None)
+    tokenizer = AutoTokenizer.from_pretrained(args.model_name)
+    model = AutoModelForSequenceClassification.from_pretrained(
+        args.model_name,
+        num_labels=1,
+    )
 
-    # Load your custom training and test datasets
-    train_dataset = GraphDataset(transformed_train)
-    test_dataset = GraphDataset(transformed_test)
+    if args.do_highlighting:  # add special toks to tokenizer
+        tokenizer.add_special_tokens(
+            {"additional_special_tokens": ["[unused1]", "[unused2]"]}
+        )
+        HL_TYPE = "highlighted"
+    else:
+        HL_TYPE = "no_highlighted"
+
+    if args.sequence_type == "question_answer":
+        SEQ_TYPE = "question_answer"
+    else:
+        SEQ_TYPE = f"{HL_TYPE}_{args.sequence_type}_sequence"
+
+    train_dataset = SequenceDataset(train_df, tokenizer, SEQ_TYPE)
+    val_dataset = SequenceDataset(val_df, tokenizer, SEQ_TYPE)
 
     training_args = TrainingArguments(
-        output_dir=Path(args.output_path) / args.run_name / "outputs",
+        output_dir=Path(output_path) / args.run_name / "outputs",
         save_total_limit=1,
         num_train_epochs=args.num_train_epochs,
         per_device_train_batch_size=args.per_device_train_batch_size,
         per_device_eval_batch_size=args.per_device_eval_batch_size,
         warmup_steps=500,
         weight_decay=0.01,
-        logging_dir=Path(args.output_path) / args.run_name / "logs",
+        logging_dir=Path(output_path) / args.run_name / "logs",
         load_best_model_at_end=True,
         metric_for_best_model="balanced_accuracy",
         greater_is_better=True,
@@ -172,26 +238,20 @@ if __name__ == "__main__":
         report_to="wandb" if args.wandb_on else "tensorboard",
     )
 
-    model = GraphormerForGraphClassification.from_pretrained(
-        args.model_name,
-        num_classes=1,
-        ignore_mismatched_sizes=True,
-    )
-    data_collator = GraphormerDataCollator()
     trainer = CustomTrainer(
         model=model,
         args=training_args,
         train_dataset=train_dataset,
-        eval_dataset=test_dataset,
-        data_collator=data_collator,
+        eval_dataset=val_dataset,
         compute_metrics=lambda x: compute_metrics(x, args.classification_threshold),
     )
     trainer.train()
 
     checkpoint_best_path = (
-        Path(args.output_path) / args.run_name / "outputs" / "checkpoint-best"
+        Path(output_path) / args.run_name / "outputs" / "checkpoint-best"
     )
     model.save_pretrained(checkpoint_best_path)
+    tokenizer.save_pretrained(checkpoint_best_path)
 
     print("Model dumped to ", checkpoint_best_path)
     print("\nFinal evaluation:\n\n", trainer.evaluate())

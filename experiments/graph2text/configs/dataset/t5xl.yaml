@@ -1,0 +1,8 @@
+path:
+  webnlg:
+    train: /workspace/kbqa/experiments/graph2text/data/t5xl/train.json
+    valid: /workspace/kbqa/experiments/graph2text/data/t5xl/dev.json
+    test: /workspace/kbqa/experiments/graph2text/data/t5xl/test.json
+columns:
+  sequence_in: "start_text"
+  sequence_out: "full_text"

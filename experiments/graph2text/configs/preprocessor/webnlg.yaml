@@ -1,0 +1,5 @@
+preprocessor_class:
+  _target_: src.preproc.webnlg_preprocessor.WebNLGPreprocessor
+delete_empty_lines: False
+remove_initial_columns: False
+remove_special_chars: False

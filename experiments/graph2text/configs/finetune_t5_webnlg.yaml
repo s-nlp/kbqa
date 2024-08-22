@@ -1,0 +1,62 @@
+dataset:
+  path:
+    webnlg:
+      train:  /workspace/kbqa/experiments/graph2text/data/webnlg/train.json
+      valid:  /workspace/kbqa/experiments/graph2text/data/webnlg/val.json
+      test:  /workspace/kbqa/experiments/graph2text/data/webnlg/test.json
+  columns:
+    sequence_in: start_text
+    sequence_out: full_text
+model:
+  path: google/flan-t5-xl
+  tokenizer:
+    max_length: 256
+    num_proc: 1
+  trainingArguments:
+    max_answer_length: 128
+    padding: max_length
+    ignore_pad_token_for_loss: true
+    useEarlyStoppingCallback: true
+    ignore_pad_token: -100
+  hyperparameterArguments:
+    discrete_space: true
+    sampler: TPESampler
+    pruner: NopPruner
+    n_trials: 1
+trainer:
+  output_dir: /workspace/kbqa/experiments/graph2text/runs/webnlg_graph_to_text_t5_xxl
+  evaluation_strategy: steps
+  per_device_train_batch_size: 4
+  per_device_eval_batch_size: 4
+  gradient_accumulation_steps: 32
+  eval_accumulation_steps: 1
+  num_train_epochs: 34
+  logging_steps: 150
+  eval_steps: 150
+  save_strategy: steps
+  save_steps: 150
+  save_total_limit: 5
+  load_best_model_at_end: true
+  metric_for_best_model: bleu
+  greater_is_better: true
+  report_to: wandb
+  do_train: true
+  do_eval: true
+  do_predict: true
+  learning_rate: 0.0003
+  weight_decay: 0.0
+  predict_with_generate: true
+  generation_max_length: 128
+  seed: 8
+  overwrite_output_dir: true
+  remove_unused_columns: false
+preprocessor:
+  preprocessor_class:
+    _target_: src.preproc.webnlg_preprocessor.WebNLGPreprocessor
+  delete_empty_lines: false
+  remove_initial_columns: false
+  remove_special_chars: false
+wandb:
+  use: false
+  entity: custom-qa
+  project: webnlg

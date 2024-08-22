@@ -1,0 +1,9 @@
+defaults:
+  - dataset: mistral
+  - model: t5_xl_checkpoint
+  - trainer: graph2text_seq2seq_t5xl_trainer
+  - preprocessor: webnlg
+wandb:
+  use: False
+  entity: custom-qa
+  project: webnlg
