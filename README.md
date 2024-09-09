@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-🔔 <a href="https://github.com/s-nlp/kbqa" target="_self">Code</a> • 📃 <a href="https://aclanthology.org/2023.paclic-1.63/" target="_self">Original Paper</a> • 📃 <a href="https://aclanthology.org/2023.paclic-1.63/" target="_self">Extended Paper</a> • 🤗 <a href="https://huggingface.co/datasets/s-nlp/KGQASubgraphsRanking" target="_self">Dataset</a>  
+🔔 <a href="https://github.com/s-nlp/kbqa" target="_self">Code</a> • 📃 <a href="https://aclanthology.org/2023.paclic-1.63/" target="_self">Paper</a> • 🤗 <a href="https://huggingface.co/datasets/s-nlp/KGQASubgraphsRanking" target="_self">Dataset</a>  
 </p>
 
 
