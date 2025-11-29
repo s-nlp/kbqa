@@ -1,25 +1,18 @@
-FROM huggingface/transformers-pytorch-gpu:4.29.2
+FROM pytorch/pytorch:2.7.1-cuda11.8-cudnn9-runtime
 
-RUN apt update && \
-    apt install -y git htop g++ && \
-    update-alternatives --install /usr/bin/gcc gcc /usr/bin/g++ 10
+RUN apt-get update && \
+    apt-get install -y git htop g++ build-essential && \
+    rm -rf /var/lib/apt/lists/*
+
+ENV PYTHONUNBUFFERED=1
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1
 
 COPY ./requirements.txt /
-RUN pip3 install --upgrade pip && \
-    pip3 install -r /requirements.txt
-
-RUN git clone --branch fixing_prefix_allowed_tokens_fn https://github.com/MihailSalnikov/fairseq && \
-    cd /fairseq && \
-    pip3 install --editable ./ && \
-    cd / && \
-    echo "export PYTHONPATH=/fairseq/" >> ~/.bashrc
-
-RUN git clone https://github.com/facebookresearch/KILT.git && \
-    pip3 install ./KILT
-
-RUN git clone https://github.com/MihailSalnikov/GENRE.git && \
-    pip3 install ./GENRE
+RUN pip install --upgrade pip && \
+    pip install -r /requirements.txt
 
 COPY ./ /workspace/kbqa
-RUN pip3 install -e /workspace/kbqa
+RUN pip install -e /workspace/kbqa
+
+WORKDIR /workspace/kbqa
 

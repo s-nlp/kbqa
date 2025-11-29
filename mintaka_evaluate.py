@@ -94,7 +94,7 @@ class EvalMintaka:
     """EvalMintaka Evaluation class for Mintaka ranked predictions"""
 
     def __init__(self):
-        mintaka_ds = load_dataset("AmazonScience/mintaka")
+        mintaka_ds = load_dataset("AmazonScience/mintaka", revision="refs/convert/parquet", data_dir=f"en")
         self.dataset = {
             "train": mintaka_ds["train"].to_pandas(),
             "validation": mintaka_ds["validation"].to_pandas(),
@@ -158,17 +158,27 @@ class EvalMintaka:
         """
         _df = self.dataset[split]
 
-        is_correct = []
-        for prediction in tqdm(predictions, desc="Process predictions.."):
+        import concurrent.futures
+
+        def process_prediction(prediction):
             question_idx = prediction["QuestionID"]
             mintaka_record = _df[_df["id"] == question_idx].iloc[0]
-            is_answer_correct_results = []
-            for _, answer in enumerate(prediction["RankedAnswers"]):
-                is_answer_correct_results.append(
-                    self.is_answer_correct(mintaka_record, answer)
-                )
+            is_answer_correct_results = [
+                self.is_answer_correct(mintaka_record, answer)
+                for answer in prediction["RankedAnswers"]
+            ]
+            return is_answer_correct_results
 
-            is_correct.append(is_answer_correct_results)
+        is_correct = []
+        with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
+            results = list(
+                tqdm(
+                    executor.map(process_prediction, predictions),
+                    total=len(predictions),
+                    desc="Process predictions.."
+                )
+            )
+            is_correct.extend(results)
 
         is_correct_df = pd.DataFrame(is_correct)
         is_correct_df["id"] = [p["QuestionID"] for p in predictions]

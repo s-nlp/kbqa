@@ -8,16 +8,20 @@ def merge_datasets(
     mintaka_ds: Dataset, outputs_ds: Dataset, features_ds: Dataset
 ) -> pd.DataFrame:
     """merge mintaka, vanilla LLM outputs and subgraph datasets"""
+    mintaka_df =mintaka_ds.to_pandas()
     outputs_df = pd.merge(
-        mintaka_ds.to_pandas(),
+        mintaka_df[mintaka_df['lang'] == 'en'],
         outputs_ds.to_pandas(),
         on="question",
         how="left",
     )
+    if "id_x" in outputs_df.columns:
+        outputs_df.rename(columns={"id_x": "id"}, inplace=True)
+
     merged_df = pd.merge(
         outputs_df[["id"] + list(outputs_ds.features.keys())],
         features_ds.to_pandas(),
-        on=["id", "question"],
+        on=["question"],
         how="left",
     )
     return merged_df
@@ -37,8 +41,14 @@ def prepare_data(
     mintaka_ds: Dataset, outputs_ds: Dataset, features_ds: Dataset
 ) -> pd.DataFrame:
     """merge mintaka, vanilla LLM outputs and subgraph datasets"""
+
     dataframe = merge_datasets(mintaka_ds, outputs_ds, features_ds)
     dataframe = compile_seq2seq_outputs_to_model_answers_column(dataframe)
+    
+    if "id_x" in dataframe.columns:
+        dataframe.rename(columns={"id_x": "id"}, inplace=True)
+    dataframe = dataframe.loc[:, ~dataframe.columns.duplicated()]
+
     return dataframe
 
 

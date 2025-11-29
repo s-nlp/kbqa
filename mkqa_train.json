@@ -1,0 +1,370 @@
+[
+  {
+    "id": 34,
+    "lang": "en",
+    "question": "who sings i'll make a man out of you",
+    "answerText": "Donny Osmond",
+    "answerEntity": [
+      {
+        "name": "Q386053",
+        "label": "Donny Osmond"
+      },
+      {
+        "name": "Q5296743",
+        "label": "Donny Osmond"
+      }
+    ],
+    "questionEntity": [
+      {
+        "name": "Q5965889",
+        "entityType": "entity",
+        "label": "I'll Make a Man Out of You",
+        "mention": "i'll make a man out of you"
+      },
+      {
+        "name": "Q386053",
+        "entityType": "entity",
+        "label": "Donny Osmond",
+        "mention": "i'll make a man out of you"
+      }
+    ]
+  },
+  {
+    "id": 36,
+    "lang": "en",
+    "question": "where is the world cup going to be held",
+    "answerText": "Qatar",
+    "answerEntity": [
+      {
+        "name": "Q846",
+        "label": "Qatar"
+      }
+    ],
+    "questionEntity": [
+      {
+        "name": "Q19317",
+        "entityType": "entity",
+        "label": "FIFA World Cup",
+        "mention": "world cup"
+      }
+    ]
+  },
+  {
+    "id": 37,
+    "lang": "en",
+    "question": "what are the names of the tweenies characters",
+    "answerText": "Judy",
+    "answerEntity": [
+      {
+        "name": "Q55615419",
+        "label": "Judy"
+      }
+    ],
+    "questionEntity": [
+      {
+        "name": "Q1569073",
+        "entityType": "entity",
+        "label": "Tweenies",
+        "mention": "tweenies characters"
+      }
+    ]
+  },
+  {
+    "id": 38,
+    "lang": "en",
+    "question": "who plays black panther in the movie black panther",
+    "answerText": "Chadwick Boseman",
+    "answerEntity": [
+      {
+        "name": "Q5066520",
+        "label": "Chadwick Boseman"
+      }
+    ],
+    "questionEntity": [
+      {
+        "name": "Q23780734",
+        "entityType": "entity",
+        "label": "Black Panther",
+        "mention": "the movie black panther"
+      }
+    ]
+  },
+  {
+    "id": 43,
+    "lang": "en",
+    "question": "what is the active ingredient in all fda approved hand sanitizers",
+    "answerText": "ethanol",
+    "answerEntity": [
+      {
+        "name": "Q153",
+        "label": "ethanol"
+      }
+    ],
+    "questionEntity": [
+      {
+        "name": "Q204711",
+        "entityType": "entity",
+        "label": "Food and Drug Administration",
+        "mention": "fda"
+      },
+      {
+        "name": "Q520181",
+        "entityType": "entity",
+        "label": "hand sanitizer",
+        "mention": "hand sanitizers"
+      }
+    ]
+  },
+  {
+    "id": 46,
+    "lang": "en",
+    "question": "who starred in the movie bridge over the river kwai",
+    "answerText": "William Holden",
+    "answerEntity": [
+      {
+        "name": "Q95002",
+        "label": "William Holden"
+      },
+      {
+        "name": "Q103894",
+        "label": "Alec Guinness"
+      },
+      {
+        "name": "Q26118",
+        "label": "Jack Hawkins"
+      }
+    ],
+    "questionEntity": [
+      {
+        "name": "Q188718",
+        "entityType": "entity",
+        "label": "The Bridge on the River Kwai",
+        "mention": "bridge over the river kwai"
+      }
+    ]
+  },
+  {
+    "id": 47,
+    "lang": "en",
+    "question": "what were the names of the knights of the round table",
+    "answerText": "Gareth",
+    "answerEntity": [
+      {
+        "name": "Q1413003",
+        "label": "Gareth"
+      },
+      {
+        "name": "Q831462",
+        "label": "Galahad"
+      },
+      {
+        "name": "Q728510",
+        "label": "Percival"
+      },
+      {
+        "name": "Q215681",
+        "label": "Lancelot"
+      },
+      {
+        "name": "Q831685",
+        "label": "Gawain"
+      }
+    ],
+    "questionEntity": [
+      {
+        "name": "Q1644266",
+        "entityType": "entity",
+        "label": "Knights of the Round Table",
+        "mention": "knights of the round table"
+      }
+    ]
+  },
+  {
+    "id": 48,
+    "lang": "en",
+    "question": "who is the host of america has talent",
+    "answerText": "Simon Cowell",
+    "answerEntity": [
+      {
+        "name": "Q162629",
+        "label": "Simon Cowell"
+      },
+      {
+        "name": "Q232646",
+        "label": "Julianne Hough"
+      },
+      {
+        "name": "Q1190974",
+        "label": "Howie Mandel"
+      },
+      {
+        "name": "Q231648",
+        "label": "Gabrielle Union"
+      },
+      {
+        "name": "Q271464",
+        "label": "Terry Crews"
+      }
+    ],
+    "questionEntity": [
+      {
+        "name": "Q947873",
+        "entityType": "entity",
+        "label": "television presenter",
+        "mention": "host"
+      },
+      {
+        "name": "Q467561",
+        "entityType": "entity",
+        "label": "America's Got Talent",
+        "mention": "america has talent"
+      }
+    ]
+  },
+  {
+    "id": 56,
+    "lang": "en",
+    "question": "who played snow white in once upon a time",
+    "answerText": "Ginnifer Goodwin",
+    "answerEntity": [
+      {
+        "name": "Q109522",
+        "label": "Ginnifer Goodwin"
+      }
+    ],
+    "questionEntity": [
+      {
+        "name": "Q11831",
+        "entityType": "entity",
+        "label": "Snow White",
+        "mention": "snow white"
+      }
+    ]
+  },
+  {
+    "id": 57,
+    "lang": "en",
+    "question": "who was the oldest man who ever lived",
+    "answerText": "Jeanne Calment",
+    "answerEntity": [
+      {
+        "name": "Q182260",
+        "label": "Jeanne Calment"
+      },
+      {
+        "name": "Q550149",
+        "label": "Jiroemon Kimura"
+      }
+    ],
+    "questionEntity": [
+      {
+        "name": "Q550149",
+        "entityType": "entity",
+        "label": "Jiroemon Kimura",
+        "mention": "the oldest man who ever lived"
+      },
+      {
+        "name": "Q6581097",
+        "entityType": "entity",
+        "label": "male",
+        "mention": "man"
+      }
+    ]
+  },
+  {
+    "id": 64,
+    "lang": "en",
+    "question": "actors in the movie gone in 60 seconds",
+    "answerText": "Angelina Jolie",
+    "answerEntity": [
+      {
+        "name": "Q13909",
+        "label": "Angelina Jolie"
+      },
+      {
+        "name": "Q1320560",
+        "label": "William Lee Scott"
+      },
+      {
+        "name": "Q314673",
+        "label": "Scott Caan"
+      },
+      {
+        "name": "Q224081",
+        "label": "Giovanni Ribisi"
+      },
+      {
+        "name": "Q42869",
+        "label": "Nicolas Cage"
+      },
+      {
+        "name": "Q171736",
+        "label": "Robert Duvall"
+      }
+    ],
+    "questionEntity": [
+      {
+        "name": "Q33999",
+        "entityType": "entity",
+        "label": "actor",
+        "mention": "actors"
+      }
+    ]
+  },
+  {
+    "id": 71,
+    "lang": "en",
+    "question": "who is the captain of west indies in cricket",
+    "answerText": "Jason Holder",
+    "answerEntity": [
+      {
+        "name": "Q6162716",
+        "label": "Jason Holder"
+      },
+      {
+        "name": "Q18684975",
+        "label": "Carlos Brathwaite"
+      }
+    ],
+    "questionEntity": [
+      {
+        "name": "Q912881",
+        "entityType": "entity",
+        "label": "West Indies cricket team",
+        "mention": "west indies"
+      },
+      {
+        "name": "Q5375",
+        "entityType": "entity",
+        "label": "cricket",
+        "mention": "cricket"
+      }
+    ]
+  },
+  {
+    "id": 72,
+    "lang": "en",
+    "question": "what is the largest lake in new zealand",
+    "answerText": "Lake Taupo",
+    "answerEntity": [
+      {
+        "name": "Q199903",
+        "label": "Lake Taupo"
+      }
+    ],
+    "questionEntity": [
+      {
+        "name": "Q199903",
+        "entityType": "entity",
+        "label": "Lake Taupō",
+        "mention": "largest lake"
+      },
+      {
+        "name": "Q664",
+        "entityType": "entity",
+        "label": "New Zealand",
+        "mention": "new zealand"
+      }
+    ]
+  }
+]
