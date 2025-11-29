@@ -48,11 +48,18 @@ parse.add_argument(
     default="s-nlp/KGQASubgraphsRanking",
     help="Path to train sequence data file (HF)",
 )
+parse.add_argument(
+    "--ds_type",
+    type=str,
+    default="t5largessm",
+    choices=["t5largessm", "t5xlssm", "mistral", "mixtral"],
+    help="Dataset type to use",
+)
 
 parse.add_argument(
     "--output_path",
     type=str,
-    default="/workspace/storage/misc/subgraphs_reranking_results",
+    default="./subgraphs_reranking_runs/sequence/",
 )
 
 parse.add_argument(
@@ -71,7 +78,7 @@ parse.add_argument(
 
 parse.add_argument(
     "--wandb_on",
-    default=True,
+    default=False,
     type=lambda x: (str(x).lower() == "true"),
     help="Using WanDB or not (True/False)",
 )
@@ -79,19 +86,19 @@ parse.add_argument(
 parse.add_argument(
     "--per_device_train_batch_size",
     type=int,
-    default=32,
+    default=16,
 )
 
 parse.add_argument(
     "--per_device_eval_batch_size",
     type=int,
-    default=32,
+    default=64,
 )
 
 parse.add_argument(
     "--num_train_epochs",
     type=int,
-    default=6,
+    default=2,
 )
 parse.add_argument(
     "--do_highlighting",
@@ -131,7 +138,7 @@ class CustomTrainer(Trainer):
             labels.append(int(i["labels"].cpu().detach().numpy()))
         return labels
 
-    def _get_train_sampler(self) -> torch.utils.data.Sampler:
+    def _get_train_sampler(self, dataset) -> torch.utils.data.Sampler:
         """create our custom sampler"""
         labels = self.get_labels()
         return self.create_sampler(labels)
@@ -190,11 +197,7 @@ if __name__ == "__main__":
     if args.wandb_on:
         os.environ["WANDB_NAME"] = args.run_name
 
-    model_folder = args.data_path.split("_")[-1]  # either large or xl
-    output_path = f"{args.output_path}/{args.sequence_type}/{model_folder}"
-    Path(output_path).mkdir(parents=True, exist_ok=True)
-
-    subgraphs_dataset = load_dataset(args.data_path)
+    subgraphs_dataset = load_dataset(args.data_path, data_dir=f"{args.ds_type}_subgraphs")
     train_df = subgraphs_dataset["train"].to_pandas()
     val_df = subgraphs_dataset["validation"].to_pandas()
 
@@ -217,6 +220,10 @@ if __name__ == "__main__":
     else:
         SEQ_TYPE = f"{HL_TYPE}_{args.sequence_type}_sequence"
 
+    model_folder = args.data_path.split("_")[-1]  # either large or xl
+    output_path = Path(args.output_path) / SEQ_TYPE / model_folder
+    output_path.mkdir(parents=True, exist_ok=True)
+
     train_dataset = SequenceDataset(train_df, tokenizer, SEQ_TYPE)
     val_dataset = SequenceDataset(val_df, tokenizer, SEQ_TYPE)
 
@@ -234,7 +241,7 @@ if __name__ == "__main__":
         greater_is_better=True,
         logging_steps=500,
         save_steps=500,
-        evaluation_strategy="steps",
+        eval_strategy="steps",
         report_to="wandb" if args.wandb_on else "tensorboard",
     )
 
@@ -248,7 +255,7 @@ if __name__ == "__main__":
     trainer.train()
 
     checkpoint_best_path = (
-        Path(output_path) / args.run_name / "outputs" / "checkpoint-best"
+        output_path / args.run_name / f"{args.ds_type}" / "outputs" / "checkpoint-best"
     )
     model.save_pretrained(checkpoint_best_path)
     tokenizer.save_pretrained(checkpoint_best_path)

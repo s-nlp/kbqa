@@ -15,6 +15,7 @@ from kbqa.seq2seq.utils import (
     load_kbqa_seq2seq_dataset,
     load_mintaka_seq2seq_dataset,
     load_lcquad2_seq2seq_dataset,
+    load_mkqa_seq2seq_dataset,
     load_model_and_tokenizer_by_name,
 )
 from kbqa.utils.train_eval import get_best_checkpoint_path
@@ -110,13 +111,13 @@ parser.add_argument(
 )
 parser.add_argument(
     "--num_beams",
-    default=200,
+    default=30,
     help="Numbers of beams for Beam search (only for eval mode)",
     type=int,
 )
 parser.add_argument(
     "--num_return_sequences",
-    default=200,
+    default=30,
     help=(
         "Numbers of return sequencese from Beam search (only for eval mode)."
         " Must be less or equal to num_beams"
@@ -125,7 +126,7 @@ parser.add_argument(
 )
 parser.add_argument(
     "--num_beam_groups",
-    default=20,
+    default=3,
     help=(
         "Number of groups to divide num_beams into in order to ensure diversity "
         "among different groups of beams (only for eval mode). "
@@ -189,6 +190,20 @@ def train(args, model_dir, logging_dir):
             args.dataset_cache_dir,
             split="test",
         )
+
+    elif args.dataset_name == "mkqa":
+        train_json_path = Path("mkqa_train.json")
+        test_json_path = Path("mkqa_test.json")
+        if not train_json_path.exists() and args.dataset_cache_dir:
+            train_json_path = Path(args.dataset_cache_dir) / "mkqa_train.json"
+        if not test_json_path.exists() and args.dataset_cache_dir:
+            test_json_path = Path(args.dataset_cache_dir) / "mkqa_test.json"
+        dataset = load_mkqa_seq2seq_dataset(
+            str(train_json_path),
+            str(test_json_path),
+            tokenizer,
+        )
+        dataset["validation"] = dataset["test"]
 
     else:
         dataset = load_kbqa_seq2seq_dataset(
@@ -269,6 +284,25 @@ def evaluate(args, model_dir, normolized_model_name):
         label_feature_name = "Label"
         logger.info(
             f"Lcquad2.0 Eval: Dataset loaded, label_feature_name={label_feature_name}"
+        )
+
+    elif args.dataset_name == "mkqa":
+        train_json_path = Path("mkqa_train.json")
+        test_json_path = Path("mkqa_test.json")
+        if not train_json_path.exists() and args.dataset_cache_dir:
+            train_json_path = Path(args.dataset_cache_dir) / "mkqa_train.json"
+        if not test_json_path.exists() and args.dataset_cache_dir:
+            test_json_path = Path(args.dataset_cache_dir) / "mkqa_test.json"
+        split = args.dataset_evaluation_split if args.dataset_evaluation_split else "test"
+        dataset = load_mkqa_seq2seq_dataset(
+            str(train_json_path),
+            str(test_json_path),
+            tokenizer,
+            split=split,
+        )
+        label_feature_name = "answerText"
+        logger.info(
+            f"Eval: MKQA Dataset loaded, label_feature_name={label_feature_name}"
         )
 
     else:

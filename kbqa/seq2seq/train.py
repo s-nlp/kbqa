@@ -1,3 +1,4 @@
+import os
 import datasets
 from .redirect_trainer import Seq2SeqWikidataRedirectsTrainer
 from ..wikidata.wikidata_redirects import WikidataRedirectsCache
@@ -27,7 +28,7 @@ def train(
     per_device_eval_batch_size: int = 1,
     warmup_steps: int = 500,
     weight_decay: float = 0.01,
-    evaluation_strategy: str = "steps",
+    eval_strategy: str = "steps",
     eval_steps: int = 500,
     logging_steps: int = 500,
     gradient_accumulation_steps: int = 8,
@@ -57,13 +58,13 @@ def train(
         per_device_eval_batch_size (int, optional): eval batch size per device. Defaults to 1.
         warmup_steps (int, optional): warmup steps for traning. Defaults to 500.
         weight_decay (float, optional): weight decay for traning. Defaults to 0.01.
-        evaluation_strategy (str, optional):
+        eval_strategy (str, optional):
             "no": No evaluation is done during training;
             "steps": Evaluation is done (and logged) every eval_steps;
             "epoch": Evaluation is done at the end of each epoch;
             Defaults to 'steps'.
         eval_steps (int, optional):
-            Number of update steps between two evaluations if evaluation_strategy="steps".
+            Number of update steps between two evaluations if eval_strategy="steps".
             Will default to the same value as logging_steps if not set.
             Defaults to 500.
         logging_steps (int, optional):
@@ -80,26 +81,31 @@ def train(
     Returns:
         Seq2SeqTrainer: Trained after traning and validation
     """
-    training_args = Seq2SeqTrainingArguments(
-        run_name=run_name,
-        report_to=report_to,
-        output_dir=output_dir,
-        num_train_epochs=num_train_epochs,
-        max_steps=max_steps,
-        per_device_train_batch_size=per_device_train_batch_size,
-        per_device_eval_batch_size=per_device_eval_batch_size,
-        warmup_steps=warmup_steps,
-        weight_decay=weight_decay,
-        logging_dir=logging_dir,
-        evaluation_strategy=evaluation_strategy,
-        eval_steps=eval_steps,
-        save_steps=eval_steps,
-        save_strategy="steps",
-        save_total_limit=save_total_limit,
-        logging_steps=logging_steps,
-        load_best_model_at_end=True,
-        gradient_accumulation_steps=gradient_accumulation_steps,
-    )
+    training_args_dict = {
+        "run_name": run_name,
+        "report_to": report_to,
+        "output_dir": output_dir,
+        "num_train_epochs": num_train_epochs,
+        "max_steps": max_steps,
+        "per_device_train_batch_size": per_device_train_batch_size,
+        "per_device_eval_batch_size": per_device_eval_batch_size,
+        "warmup_steps": warmup_steps,
+        "weight_decay": weight_decay,
+        "logging_dir": logging_dir,
+        "eval_strategy": eval_strategy,
+        "eval_steps": eval_steps,
+        "save_steps": eval_steps,
+        "save_strategy": "steps",
+        "save_total_limit": save_total_limit,
+        "logging_steps": logging_steps,
+        "load_best_model_at_end": True,
+        "gradient_accumulation_steps": gradient_accumulation_steps,
+    }
+    
+    if "LOCAL_RANK" not in os.environ and "RANK" not in os.environ:
+        training_args_dict["local_rank"] = -1
+    
+    training_args = Seq2SeqTrainingArguments(**training_args_dict)
 
     if trainer_mode == "default":
         trainer = Seq2SeqTrainer(

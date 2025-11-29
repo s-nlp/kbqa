@@ -284,6 +284,63 @@ def load_mintaka_seq2seq_dataset(
     return dataset
 
 
+def load_mkqa_seq2seq_dataset(
+    train_json_path: str,
+    test_json_path: str,
+    tokenizer: PreTrainedTokenizer,
+    split: str = None,
+    use_convert_to_features: bool = True,
+):
+    """load_mkqa_seq2seq_dataset - helper for loading MKQA dataset for seq2seq
+
+    Args:
+        train_json_path (str): Path to mkqa_train.json file
+        test_json_path (str): Path to mkqa_test.json file
+        tokenizer (PreTrainedTokenizer): Tokenizer of seq2seq model
+        split (str, optional): Load only train/test split if passed, else load all. Defaults to None.
+        use_convert_to_features (bool, optional): Converting dataset to features for seq2seq training/evaluation pipeline. Defaults to True.
+
+    Returns:
+        datasets.arrow_dataset.Dataset or datasets.DatasetDict: Prepared dataset for seq2seq
+    """
+    data_files = {"train": train_json_path, "test": test_json_path}
+    
+    if split is None:
+        dataset = datasets.load_dataset("json", data_files=data_files)
+    else:
+        split_map = {"train": train_json_path, "test": test_json_path}
+        if split not in split_map:
+            raise ValueError(f"split must be 'train' or 'test', got {split}")
+        dataset = datasets.load_dataset("json", data_files={split: split_map[split]}, split=split)
+
+    if use_convert_to_features is True:
+        if isinstance(dataset, datasets.DatasetDict):
+            dataset = dataset.map(
+                lambda batch: convert_to_features(
+                    batch, tokenizer, label_feature_name="answerText"
+                ),
+                batched=True,
+            )
+            for split_name in dataset:
+                dataset[split_name].set_format(
+                    type="torch",
+                    columns=["input_ids", "labels", "attention_mask"],
+                )
+        else:
+            dataset = dataset.map(
+                lambda batch: convert_to_features(
+                    batch, tokenizer, label_feature_name="answerText"
+                ),
+                batched=True,
+            )
+            dataset.set_format(
+                type="torch",
+                columns=["input_ids", "labels", "attention_mask"],
+            )
+
+    return dataset
+
+
 def hf_model_name_mormolize(model_name: str) -> str:
     """hf_model_name_mormolize - return normolized model name for storing to directory
     Example: facebook/bart-large -> facebook_bart-large
