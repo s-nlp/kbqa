@@ -25,6 +25,10 @@ def get_best_checkpoint_path(path_to_checkpoints: str) -> str:
         last_checkpint_path = pathes[-1]
         with open(last_checkpint_path / "trainer_state.json", "r") as file_handler:
             train_state = json.load(file_handler)
-        best_model_checkpoint = Path(train_state["best_model_checkpoint"]).name
+        if train_state["best_model_checkpoint"] is None:
+            best_model_checkpoint = last_checkpint_path.name
+        else:
+            best_model_checkpoint = Path(train_state["best_model_checkpoint"]).name
+        print("Used checkpoint: ", best_model_checkpoint)
 
         return path_to_checkpoints / best_model_checkpoint
