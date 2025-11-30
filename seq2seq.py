@@ -191,6 +191,13 @@ def train(args, model_dir, logging_dir):
             split="test",
         )
 
+    elif args.dataset_name == "mkqa-hf":
+        dataset = load_mintaka_seq2seq_dataset(
+            'Dms12/mkqa_mintaka_format_with_question_entities',
+            args.dataset_config_name,
+            tokenizer,
+        )
+
     elif args.dataset_name == "mkqa":
         train_json_path = Path("mkqa_train.json")
         test_json_path = Path("mkqa_test.json")
@@ -284,6 +291,18 @@ def evaluate(args, model_dir, normolized_model_name):
         label_feature_name = "Label"
         logger.info(
             f"Lcquad2.0 Eval: Dataset loaded, label_feature_name={label_feature_name}"
+        )
+
+    elif args.dataset_name == "mkqa-hf":
+        dataset = load_mintaka_seq2seq_dataset(
+            'Dms12/mkqa_mintaka_format_with_question_entities',
+            args.dataset_config_name,
+            tokenizer,
+            split=args.dataset_evaluation_split,
+        )
+        label_feature_name = "answerText"
+        logger.info(
+            f"Eval: MKQA Dataset loaded, label_feature_name={label_feature_name}"
         )
 
     elif args.dataset_name == "mkqa":
