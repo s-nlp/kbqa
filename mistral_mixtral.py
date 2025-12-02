@@ -1,6 +1,7 @@
 """script for mistral and mixtral"""
 from pathlib import Path
 import pickle
+import json
 from tqdm import tqdm
 from argparse import ArgumentParser
 import random
@@ -40,6 +41,11 @@ parser.add_argument(
     default="mistralai/Mixtral-8x7B-Instruct-v0.1",
 )
 parser.add_argument(
+    "--model_checkpoint_path",
+    default=None,
+    help="Direct path to LoRA adapter checkpoint directory (for eval mode). If provided, will use this instead of constructing path from output_dir",
+)
+parser.add_argument(
     "--mode",
     default="train",
     choices=["train", "eval", "train_eval"],
@@ -57,6 +63,14 @@ parser.add_argument(
     help="file path for the generated answer candidates",
 )
 parser.add_argument("--evaluation_split", default="test")
+parser.add_argument("--dataset_name", default="AmazonScience/mintaka")
+parser.add_argument("--dataset_config_name", default="en")
+parser.add_argument(
+    "--num_beams",
+    default=30,
+    type=int,
+    help="Numbers of beams for Beam search (only for eval mode)",
+)
 
 # prompt to feed mistral/mixtral
 # pylint: disable=line-too-long
@@ -180,7 +194,7 @@ def train(args, dataset):
     training_args = TrainingArguments(
         num_train_epochs=3,
         output_dir=args.output_dir,
-        evaluation_strategy="steps",
+        eval_strategy="steps",
         eval_steps=10,
         save_steps=10,
         save_total_limit=3,
@@ -227,8 +241,17 @@ def evaluate(args, dataset):
         trust_remote_code=True,
     )
 
+    if args.model_checkpoint_path:
+        checkpoint_path = args.model_checkpoint_path
+        if Path(checkpoint_path).is_dir():
+            checkpoint_path = get_best_checkpoint_path(checkpoint_path) or checkpoint_path
+        output_dir = Path(checkpoint_path).parent
+    else:
+        checkpoint_path = get_best_checkpoint_path(args.output_dir)
+        output_dir = Path(args.output_dir)
+
     model = PeftModel.from_pretrained(
-        model, get_best_checkpoint_path(args.output_dir), torch_dtype=torch.float16
+        model, checkpoint_path, torch_dtype=torch.float16
     )
     model.eval()
     tokenizer = AutoTokenizer.from_pretrained(args.model_name, trust_remote_code=True)
@@ -236,11 +259,15 @@ def evaluate(args, dataset):
 
     eval_split = args.evaluation_split
     prompts = create_prompts(dataset, eval_split)
-    with open(
-        Path(args.output_dir) / f"{args.model_name}_{eval_split}_answer_candidates",
-        "rb",
-    ) as file:
-        mistral_answer = pickle.load(file)
+
+    answer_candidates_path = output_dir / f"{Path(args.model_name).name}_{eval_split}_answer_candidates.pkl"
+    answer_candidates_path.parent.mkdir(parents=True, exist_ok=True)
+
+    if answer_candidates_path.exists():
+        with open(answer_candidates_path, "rb") as file:
+            mistral_answer = pickle.load(file)
+    else:
+        mistral_answer = []
 
     # filling the pkl file with the generated answers
     for index in tqdm(range(len(mistral_answer), len(dataset[eval_split]))):
@@ -255,15 +282,26 @@ def evaluate(args, dataset):
             }
         ]
 
-        with open(args.file_name, "wb") as file:
+        with open(answer_candidates_path, "wb") as file:
             pickle.dump(mistral_answer, file)
+    
+    # Save final results as JSON
+    answer_candidates_json_path = output_dir / f"{Path(args.model_name).name}_{eval_split}_answer_candidates.json"
+    with open(answer_candidates_json_path, "w", encoding="utf-8") as file:
+        json.dump(mistral_answer, file, indent=2, ensure_ascii=False)
 
 
 if __name__ == "__main__":
-    huggingface_hub.login()
+    # huggingface_hub.login()
     args = parser.parse_args()
 
-    ds = datasets.load_dataset("AmazonScience/mintaka")
+    if args.dataset_name == "mkqa-hf":
+        ds = datasets.load_dataset(
+            'Dms12/mkqa_mintaka_format_with_question_entities',
+            args.dataset_config_name,
+        )
+    else:
+        ds = datasets.load_dataset(args.dataset_name, args.dataset_config_name)
 
     if args.mode == "train":
         train(args, ds)
