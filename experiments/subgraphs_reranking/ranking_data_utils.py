@@ -52,6 +52,31 @@ def prepare_data(
     return dataframe
 
 
+def parse_embedding_string(embedding_str):
+    """Parse comma-separated embedding string to numpy array, replacing NaN/Inf with 0.0"""
+    if isinstance(embedding_str, (list, np.ndarray)):
+        arr = np.array(embedding_str, dtype=np.float32)
+    elif isinstance(embedding_str, str):
+        try:
+            arr = np.array([float(x) for x in embedding_str.split(",")], dtype=np.float32)
+        except (ValueError, AttributeError):
+            arr = np.array([0.0], dtype=np.float32)
+    else:
+        arr = np.array([0.0], dtype=np.float32)
+    
+    arr = np.nan_to_num(arr, nan=0.0, posinf=0.0, neginf=0.0)
+    return arr
+
+
+def convert_embedding_columns_to_arrays(dataframe: pd.DataFrame, embedding_columns: list) -> pd.DataFrame:
+    """Convert embedding string columns to numpy arrays, handling NaN/Inf values"""
+    dataframe = dataframe.copy()
+    for col in embedding_columns:
+        if col in dataframe.columns:
+            dataframe[col] = dataframe[col].apply(parse_embedding_string)
+    return dataframe
+
+
 def df_to_features_array(dataframe: pd.DataFrame) -> np.ndarray:
     """convert from df to arr representation"""
     features_array = []
