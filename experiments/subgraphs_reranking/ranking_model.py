@@ -127,7 +127,9 @@ class RankerBase(Ranker):
         for score, answer_entity_id in zip(sorted_scores, sorted_ranked_answers):
             ranked_answers.append(
                 RankedAnswer(
-                    AnswerEntityID=answer_entity_id, AnswerString=None, Score=score
+                    AnswerEntityID=str(answer_entity_id) if answer_entity_id is not None else None, 
+                    AnswerString=None, 
+                    Score=float(score)
                 )
             )
         return ranked_answers
