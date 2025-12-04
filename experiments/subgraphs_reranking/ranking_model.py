@@ -13,8 +13,9 @@ from transformers import (
     AutoModelForSequenceClassification,
     AutoTokenizer,
 )
-from catboost import CatBoostRegressor
-from ranking_data_utils import df_to_features_array
+from catboost import CatBoostRegressor, Pool
+from sklearn import preprocessing, utils
+from ranking_data_utils import df_to_features_array, convert_embedding_columns_to_arrays
 
 
 class RankedAnswer(TypedDict):
@@ -362,7 +363,7 @@ class CatboostRanker(RankerBase):
 
     def __init__(
         self,
-        model_path,
+        model_path: Optional[str] = None,
         sequence_features: Optional[list] = None,
         graph_features: Optional[list] = None,
         scaler_path: Optional[str] = None,
@@ -391,10 +392,92 @@ class CatboostRanker(RankerBase):
             except Exception as exception:  # pylint: disable=broad-except
                 print(f"Failed to load fitted scaler: {exception}")
 
-    def fit(self, train_df: DataFrame, **kwargs) -> None:
-        raise NotImplementedError(
-            "No fit function for CatBoost. Model should be trained already."
+    def fit(
+        self,
+        train_df: DataFrame,
+        val_df: Optional[DataFrame] = None,
+        model_save_path: Optional[str] = None,
+        scaler_save_path: Optional[str] = None,
+        early_stopping_rounds: int = 300,
+        **kwargs,
+    ) -> None:
+        """fit CatBoost model on train_df"""
+        train_df = train_df.dropna(subset=["graph"]).copy()
+        train_df = train_df.sample(frac=0.999).reset_index(drop=True)
+        if val_df is not None:
+            val_df = val_df.dropna(subset=["graph"]).copy()
+            if len(val_df) == 0:
+                val_df = None
+
+        embedding_features = []
+        if self.sequence_features:
+            embedding_features = self.sequence_features.copy()
+
+        if self.graph_features:
+            scaler = preprocessing.MinMaxScaler()
+            train_df[self.graph_features] = scaler.fit_transform(
+                train_df[self.graph_features]
+            )
+            self.fitted_scaler = scaler
+            if scaler_save_path:
+                joblib.dump(scaler, scaler_save_path)
+            if val_df is not None and len(val_df) > 0:
+                val_df[self.graph_features] = scaler.transform(
+                    val_df[self.graph_features]
+                )
+
+        train_df = convert_embedding_columns_to_arrays(train_df, embedding_features)
+        if val_df is not None and len(val_df) > 0:
+            val_df = convert_embedding_columns_to_arrays(val_df, embedding_features)
+
+        X_train = train_df[self.features_to_use]
+        y_train = train_df["correct"].astype(float).tolist()
+
+        train_classes = np.unique(y_train)
+        train_weights = utils.compute_class_weight(
+            class_weight="balanced", classes=train_classes, y=y_train
         )
+        train_class_weights = np.array(y_train)
+        train_class_weights[train_class_weights == 0] = train_weights[0]
+        train_class_weights[train_class_weights == 1] = train_weights[1]
+
+
+
+        learn_pool = Pool(
+            X_train,
+            y_train,
+            feature_names=list(X_train),
+            embedding_features=embedding_features if embedding_features else None,
+            weight=train_class_weights,
+        )
+
+        val_pool = None
+        if val_df is not None and len(val_df) > 0:
+            X_val = val_df[self.features_to_use]
+            y_val = val_df["correct"].astype(float).tolist()
+            val_pool = Pool(
+                X_val,
+                y_val,
+                feature_names=list(X_val),
+                embedding_features=embedding_features if embedding_features else None,
+            )
+
+        # params = {
+        #     "learning_rate": list(np.linspace(0.03, 0.3, 5)),
+        #     "depth": [4, 8, 10],
+        # }
+        model = CatBoostRegressor()
+        # grid_search_result = model.grid_search(params, learn_pool)
+
+        self.model = CatBoostRegressor(
+            depth=4,
+            early_stopping_rounds=early_stopping_rounds,
+            eval_metric="RMSE",
+        )
+        self.model.fit(learn_pool, eval_set=val_pool, verbose=200)
+
+        if model_save_path:
+            self.model.save_model(model_save_path)
 
     def rerank(self, test_df: DataFrame) -> List[RankedAnswersDict]:
         """given test_df, rerank using the trained model and output the
@@ -402,10 +485,16 @@ class CatboostRanker(RankerBase):
         if self.model is None:
             raise NotFittedError("This ranker model is not fitted yet.")
 
-        if self.fitted_scaler:  # fit graph features if we have a scaler
+        test_df = test_df.copy()
+        if self.fitted_scaler:  # scale graph features if we have a scaler
             test_df[self.graph_features] = self.fitted_scaler.transform(
                 test_df[self.graph_features]
             )
+        
+        embedding_features = []
+        if self.sequence_features:
+            embedding_features = self.sequence_features.copy()
+        test_df = convert_embedding_columns_to_arrays(test_df, embedding_features)
 
         results = []
         groups = test_df.groupby("id")
