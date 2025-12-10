@@ -164,6 +164,11 @@ parser.add_argument(
     help="Using Wikidata redirects for augmenting train dataset. Do not use with Seq2SeqWikidataRedirectsTrainer",
     type=lambda x: (str(x).lower() == "true"),
 )
+parser.add_argument(
+    "--model_checkpoint_path",
+    default=None,
+    help="Direct path to model checkpoint directory (for eval mode). If provided, will use this instead of constructing path from save_dir/model_name/run_name",
+)
 
 
 def train(args, model_dir, logging_dir):
@@ -264,11 +269,22 @@ def train(args, model_dir, logging_dir):
 
 def evaluate(args, model_dir, normolized_model_name):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    
+    output_dir = None
+    if args.model_checkpoint_path:
+        checkpoint_path = args.model_checkpoint_path
+        if Path(checkpoint_path).is_dir():
+            checkpoint_path = get_best_checkpoint_path(checkpoint_path) or checkpoint_path
+        output_dir = Path(checkpoint_path).parent
+    else:
+        checkpoint_path = get_best_checkpoint_path(model_dir)
+    
     model, tokenizer = load_model_and_tokenizer_by_name(
-        args.model_name, get_best_checkpoint_path(model_dir)
+        args.model_name, checkpoint_path
     )
     model = model.to(device)
 
+    split_suffix = None
     if args.dataset_name == "AmazonScience/mintaka":
         dataset = load_mintaka_seq2seq_dataset(
             args.dataset_name,
@@ -277,6 +293,7 @@ def evaluate(args, model_dir, normolized_model_name):
             split=args.dataset_evaluation_split,
         )
         label_feature_name = "answerText"
+        split_suffix = args.dataset_evaluation_split
         logger.info(
             f"Eval: MINTAKA Dataset loaded, label_feature_name={label_feature_name}"
         )
@@ -289,6 +306,7 @@ def evaluate(args, model_dir, normolized_model_name):
             split="test",
         )
         label_feature_name = "Label"
+        split_suffix = "test"
         logger.info(
             f"Lcquad2.0 Eval: Dataset loaded, label_feature_name={label_feature_name}"
         )
@@ -301,6 +319,7 @@ def evaluate(args, model_dir, normolized_model_name):
             split=args.dataset_evaluation_split,
         )
         label_feature_name = "answerText"
+        split_suffix = args.dataset_evaluation_split
         logger.info(
             f"Eval: MKQA Dataset loaded, label_feature_name={label_feature_name}"
         )
@@ -320,6 +339,7 @@ def evaluate(args, model_dir, normolized_model_name):
             split=split,
         )
         label_feature_name = "answerText"
+        split_suffix = split
         logger.info(
             f"Eval: MKQA Dataset loaded, label_feature_name={label_feature_name}"
         )
@@ -334,6 +354,7 @@ def evaluate(args, model_dir, normolized_model_name):
             apply_redirects_augmentation=args.apply_redirects_augmentation,
         )
         label_feature_name = "object"
+        split_suffix = args.dataset_evaluation_split
         logger.info(f"Eval: Dataset loaded, label_feature_name={label_feature_name}")
 
     results_df, report = make_report(
@@ -350,7 +371,9 @@ def evaluate(args, model_dir, normolized_model_name):
         label_feature_name=label_feature_name,
     )
 
-    eval_report_dir = dump_eval(results_df, report, args, normolized_model_name)
+    eval_report_dir = dump_eval(
+        results_df, report, args, normolized_model_name, output_dir=output_dir, split_suffix=split_suffix
+    )
     if args.mlflow_experiment_name is not None:
         mlflow.log_metrics(report)
         mlflow.log_artifacts(eval_report_dir, "report")

@@ -369,26 +369,40 @@ def get_model_logging_dirs(save_dir, model_name, run_name=None):
 
 
 def dump_eval(
-    results_df: pd.DataFrame, report: dict, args: Namespace, normolized_model_name: str
+    results_df: pd.DataFrame,
+    report: dict,
+    args: Namespace,
+    normolized_model_name: str,
+    output_dir: Path = None,
+    split_suffix: str = None,
 ):
-    eval_report_dir = Path(args.save_dir)
-    if args.run_name is not None:
-        eval_report_dir = eval_report_dir / args.run_name
-    eval_report_dir = (
-        eval_report_dir
-        / (
-            normolized_model_name.name
-            if isinstance(normolized_model_name, Path)
-            else str(normolized_model_name)
+    if output_dir is not None:
+        eval_report_dir = Path(output_dir) / "evaluation"
+    else:
+        eval_report_dir = Path(args.save_dir)
+        if args.run_name is not None:
+            eval_report_dir = eval_report_dir / args.run_name
+        eval_report_dir = (
+            eval_report_dir
+            / (
+                normolized_model_name.name
+                if isinstance(normolized_model_name, Path)
+                else str(normolized_model_name)
+            )
+            / "evaluation"
         )
-        / "evaluation"
-    )
 
     number_of_versions = len(list(eval_report_dir.glob("version_*")))
-    eval_report_dir = eval_report_dir / f"version_{number_of_versions}"
+    version_name = f"version_{number_of_versions}"
+    if split_suffix:
+        version_name = f"{version_name}_{split_suffix}"
+    eval_report_dir = eval_report_dir / version_name
     eval_report_dir.mkdir(parents=True, exist_ok=True)
 
-    results_df.to_csv(eval_report_dir / "results.csv", index=False)
+    results_filename = "results.csv"
+    if split_suffix:
+        results_filename = f"results_{split_suffix}.csv"
+    results_df.to_csv(eval_report_dir / results_filename, index=False)
     with open(eval_report_dir / "report.json", "w", encoding=None) as file_handler:
         json.dump(report, file_handler)
     with open(eval_report_dir / "args.json", "w", encoding=None) as file_handler:
