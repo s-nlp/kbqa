@@ -153,7 +153,7 @@ def igraph_to_nx(subgraph: ig.Graph):
     return nx_subgraph
 
 
-def write_from_queue(save_jsonl_path: str, results_q: JoinableQueue, n_jobs: int):
+def write_from_queue(save_jsonl_path: str, results_q: JoinableQueue):
     """given a queue, write the queue to the save_jsonl_path file
 
     Args:
@@ -161,20 +161,14 @@ def write_from_queue(save_jsonl_path: str, results_q: JoinableQueue, n_jobs: int
         results_q (JoinableQueue): result queue (to write our results from)
     """
     with open(save_jsonl_path, "a+", encoding="utf-8") as file_handler:
-        finished_workers = 0
-        while finished_workers < n_jobs:
+        while True:
             try:
                 json_obj = results_q.get()
-                if json_obj == "END!":
-                    finished_workers += 1
-                else:
-                    file_handler.write(json_obj + "\n")
+                file_handler.write(json_obj + "\n")
             except QueueEmpty:
                 continue
             else:
                 results_q.task_done()
-
-        print("Finished writing queue")
 
 
 def read_wd_graph(wd_graph_path: str) -> ig.Graph:
@@ -215,50 +209,39 @@ def find_subgraph_and_transform_to_json(
         f"[{now()}]{proc_worker_header}[{os.getpid()}] Current process memory (Gb)",
         psutil.Process(os.getpid()).memory_info().rss / (1024.0**3),
     )
-    is_working = True
-    while is_working:
+    while True:
         try:
             task_line = task_q.get()
-            if task_line == "END!":
-                results_q.put(task_line)
-                is_working = False
-            else:
-                start_time = time.time()
-                data = ujson.loads(task_line)
-                try:
-                    subgraph = extract_subgraph(
-                        wd_graph, data["answerEntity"], data["questionEntity"]
-                    )
-                except ValueError as value_err:
-                    with open("ErrorsLog.jsonl", "a+", encoding="utf-8") as file:
-                        data["error"] = str(value_err)
-                        file.write(ujson.dumps(data) + "\n")
-                        continue
-                except Exception as general_exception:  # pylint: disable=broad-except
-                    print(str(general_exception))
-                    time.sleep(60)
-                    subgraph = extract_subgraph(
-                        wd_graph, data["answerEntity"], data["questionEntity"]
-                    )
+            start_time = time.time()
+            data = ujson.loads(task_line)
+            try:
+                subgraph = extract_subgraph(
+                    wd_graph, data["answerEntity"], data["questionEntity"]
+                )
+            except ValueError as value_err:
+                with open("ErrorsLog.jsonl", "a+", encoding="utf-8") as file:
+                    data["error"] = str(value_err)
+                    file.write(ujson.dumps(data) + "\n")
+                    continue
+            except Exception as general_exception:  # pylint: disable=broad-except
+                print(str(general_exception))
+                time.sleep(60)
+                subgraph = extract_subgraph(
+                    wd_graph, data["answerEntity"], data["questionEntity"]
+                )
 
-                nx_subgraph = igraph_to_nx(subgraph)
-                data["graph"] = nx.node_link_data(nx_subgraph)
+            nx_subgraph = igraph_to_nx(subgraph)
+            data["graph"] = nx.node_link_data(nx_subgraph)
 
-                results_q.put(ujson.dumps(data))
+            results_q.put(ujson.dumps(data))
         except QueueEmpty:
             continue
         else:
             task_queue.task_done()
-            if task_line == "END!":
-                print(
-                    f"[{now()}]{proc_worker_header}[{os.getpid()}] \
-                                Received End of tasks. Send the same to writer!"
-                )
-            else:
-                print(
-                    f"[{now()}]{proc_worker_header}[{os.getpid()}] \
-                    SSP task completed ({time.time() - start_time}s)"
-                )
+            print(
+                f"[{now()}]{proc_worker_header}[{os.getpid()}] \
+                SSP task completed ({time.time() - start_time}s)"
+            )
 
 
 if __name__ == "__main__":
@@ -270,8 +253,6 @@ if __name__ == "__main__":
     proc_worker_header = f"{BColors.OKGREEN}[Process Worker]{BColors.ENDC}"
     print(f"[{now()}]] Start loading WD Graph")
     parsed_wd_graph = read_wd_graph(args.igraph_wikidata_path)
-    # parsed_wd_graph = None
-
     print(
         f"[{now()}]]{BColors.OKGREEN} \
             WD Graph loaded{BColors.ENDC}"
@@ -282,7 +263,7 @@ if __name__ == "__main__":
     task_queue = JoinableQueue(maxsize=queue_max_size)
     writing_thread = Process(
         target=write_from_queue,
-        args=[args.save_jsonl_path, results_queue, args.n_jobs],
+        args=[args.save_jsonl_path, results_queue],
         daemon=True,
     )
     writing_thread.start()
@@ -295,8 +276,7 @@ if __name__ == "__main__":
             daemon=True,
         )
         p.start()
-        time.sleep(30)
-        # time.sleep(1)
+        time.sleep(180)
 
     with open(
         args.subgraphs_dataset_prepared_entities_jsonl_path, "r", encoding="utf-8"
@@ -315,9 +295,6 @@ if __name__ == "__main__":
                     f"[{now()}]{BColors.HEADER}[Main Thread]{BColors.ENDC} results_queue size: \
                         {results_queue.qsize():4d}; task_queue size: {task_queue.qsize():4d}"
                 )
-
-    for _ in range(args.n_jobs):
-        task_queue.put("END!")
 
     print(f"[{now()}]{BColors.HEADER}[Main Thread]{BColors.ENDC} All tasks sent")
     task_queue.join()

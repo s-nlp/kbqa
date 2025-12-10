@@ -19,10 +19,6 @@ from transformers import (
 from datasets import load_dataset
 
 
-torch.manual_seed(8)
-random.seed(8)
-np.random.seed(8)
-
 
 METRIC_CLASSIFIER = evaluate.combine(
     [
@@ -49,6 +45,13 @@ parse.add_argument(
     help="Path to train sequence data file (HF)",
 )
 parse.add_argument(
+    "--dataset",
+    type=str,
+    default="mintaka",
+    choices=["mintaka", "mkqa-hf"],
+    help="Dataset to use: mintaka or mkqa-hf.",
+)
+parse.add_argument(
     "--ds_type",
     type=str,
     default="t5largessm",
@@ -59,7 +62,7 @@ parse.add_argument(
 parse.add_argument(
     "--output_path",
     type=str,
-    default="./subgraphs_reranking_runs/sequence/",
+    default="/mnt/storage/QA_System_Project/kbqa_reranking_experiments_runs/sequence/",
 )
 
 parse.add_argument(
@@ -197,9 +200,23 @@ if __name__ == "__main__":
     if args.wandb_on:
         os.environ["WANDB_NAME"] = args.run_name
 
-    subgraphs_dataset = load_dataset(args.data_path, data_dir=f"{args.ds_type}_subgraphs")
+    hf_cache_dir = "/workspace/storage/misc/huggingface"
+    
+    if args.dataset == "mintaka":
+        kgqa_ds_path = "s-nlp/KGQASubgraphsRanking"
+        features_data_dir = f"{args.ds_type}_subgraphs"
+    elif args.dataset == "mkqa-hf":
+        kgqa_ds_path = "s-nlp/MKQASubgraphsRanking"
+        features_data_dir = f"mkqa_{args.ds_type}_subgraphs"
+    
+    subgraphs_dataset = load_dataset(kgqa_ds_path, data_dir=features_data_dir, cache_dir=hf_cache_dir)
     train_df = subgraphs_dataset["train"].to_pandas()
-    val_df = subgraphs_dataset["validation"].to_pandas()
+    
+    if args.dataset == "mkqa-hf":
+        val_df = train_df.head(100)
+        train_df = train_df.iloc[100:].reset_index(drop=True)
+    else:
+        val_df = subgraphs_dataset["validation"].to_pandas()
 
     tokenizer = AutoTokenizer.from_pretrained(args.model_name)
     model = AutoModelForSequenceClassification.from_pretrained(
@@ -220,22 +237,26 @@ if __name__ == "__main__":
     else:
         SEQ_TYPE = f"{HL_TYPE}_{args.sequence_type}_sequence"
 
-    model_folder = args.data_path.split("_")[-1]  # either large or xl
-    output_path = Path(args.output_path) / SEQ_TYPE / model_folder
+    output_path = Path(args.output_path) / args.dataset / SEQ_TYPE / args.ds_type
     output_path.mkdir(parents=True, exist_ok=True)
 
     train_dataset = SequenceDataset(train_df, tokenizer, SEQ_TYPE)
     val_dataset = SequenceDataset(val_df, tokenizer, SEQ_TYPE)
 
+    output_dir = output_path / args.run_name / "outputs"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    logging_dir = output_path / args.run_name / "logs"
+    logging_dir.mkdir(parents=True, exist_ok=True)
+
     training_args = TrainingArguments(
-        output_dir=Path(output_path) / args.run_name / "outputs",
-        save_total_limit=1,
+        output_dir=str(output_dir),
+        save_total_limit=2,
         num_train_epochs=args.num_train_epochs,
         per_device_train_batch_size=args.per_device_train_batch_size,
         per_device_eval_batch_size=args.per_device_eval_batch_size,
         warmup_steps=500,
         weight_decay=0.01,
-        logging_dir=Path(output_path) / args.run_name / "logs",
+        logging_dir=str(logging_dir),
         load_best_model_at_end=True,
         metric_for_best_model="balanced_accuracy",
         greater_is_better=True,
@@ -252,10 +273,10 @@ if __name__ == "__main__":
         eval_dataset=val_dataset,
         compute_metrics=lambda x: compute_metrics(x, args.classification_threshold),
     )
-    trainer.train()
+    trainer.train(resume_from_checkpoint=None)
 
     checkpoint_best_path = (
-        output_path / args.run_name / f"{args.ds_type}" / "outputs" / "checkpoint-best"
+        output_path / args.run_name / "outputs" / "checkpoint-best"
     )
     model.save_pretrained(checkpoint_best_path)
     tokenizer.save_pretrained(checkpoint_best_path)

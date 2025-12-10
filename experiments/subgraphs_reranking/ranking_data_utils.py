@@ -48,28 +48,46 @@ def prepare_data(
     if "id_x" in dataframe.columns:
         dataframe.rename(columns={"id_x": "id"}, inplace=True)
     dataframe = dataframe.loc[:, ~dataframe.columns.duplicated()]
+    
+    # Convert embedding string columns to arrays
+    embedding_columns = [col for col in dataframe.columns if col.endswith("_embedding")]
+    if embedding_columns:
+        dataframe = convert_embedding_columns_to_arrays(dataframe, embedding_columns)
 
     return dataframe
 
 
 def parse_embedding_string(embedding_str):
-    """Parse comma-separated embedding string to numpy array, replacing NaN/Inf with 0.0"""
+    """Parse comma-separated embedding string to list of floats, replacing NaN/Inf with 0.0"""
+    if embedding_str is None:
+        return [0.0]
+    
     if isinstance(embedding_str, (list, np.ndarray)):
         arr = np.array(embedding_str, dtype=np.float32)
     elif isinstance(embedding_str, str):
+        if not embedding_str or embedding_str.strip() == "" or embedding_str.strip() == ".":
+            return [0.0]
         try:
-            arr = np.array([float(x) for x in embedding_str.split(",")], dtype=np.float32)
+            parts = embedding_str.split(",")
+            arr = np.array([float(x.strip()) if x.strip() and x.strip() != "." else 0.0 
+                           for x in parts], dtype=np.float32)
         except (ValueError, AttributeError):
             arr = np.array([0.0], dtype=np.float32)
     else:
+        if np.isscalar(embedding_str) and pd.isna(embedding_str):
+            return [0.0]
         arr = np.array([0.0], dtype=np.float32)
     
     arr = np.nan_to_num(arr, nan=0.0, posinf=0.0, neginf=0.0)
-    return arr
+    if len(arr) == 0:
+        arr = np.array([0.0], dtype=np.float32)
+    return arr.tolist()
 
 
 def convert_embedding_columns_to_arrays(dataframe: pd.DataFrame, embedding_columns: list) -> pd.DataFrame:
     """Convert embedding string columns to numpy arrays, handling NaN/Inf values"""
+    if dataframe.empty:
+        return dataframe
     dataframe = dataframe.copy()
     for col in embedding_columns:
         if col in dataframe.columns:
