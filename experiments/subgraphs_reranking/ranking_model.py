@@ -15,7 +15,7 @@ from transformers import (
 )
 from catboost import CatBoostRegressor, Pool
 from sklearn import preprocessing, utils
-from ranking_data_utils import df_to_features_array, convert_embedding_columns_to_arrays
+from ranking_data_utils import df_to_features_array
 
 
 class RankedAnswer(TypedDict):
@@ -69,7 +69,7 @@ class NORanker(Ranker):
             ]
             results.append(
                 RankedAnswersDict(
-                    QuestionID=row["id"],
+                    QuestionID=str(row["id"]),
                     RankedAnswers=ranked_answers,
                 )
             )
@@ -100,7 +100,7 @@ class FullRandomRanker(Ranker):
             ]
             results.append(
                 RankedAnswersDict(
-                    QuestionID=row["id"],
+                    QuestionID=str(row["id"]),
                     RankedAnswers=ranked_answers,
                 )
             )
@@ -127,9 +127,7 @@ class RankerBase(Ranker):
         for score, answer_entity_id in zip(sorted_scores, sorted_ranked_answers):
             ranked_answers.append(
                 RankedAnswer(
-                    AnswerEntityID=str(answer_entity_id) if answer_entity_id is not None else None, 
-                    AnswerString=None, 
-                    Score=float(score)
+                    AnswerEntityID=str(answer_entity_id), AnswerString=None, Score=float(score)
                 )
             )
         return ranked_answers
@@ -214,7 +212,7 @@ class LogisticRegressionRanker(RankerBase):
 
             results.append(
                 RankedAnswersDict(
-                    QuestionID=question_id,
+                    QuestionID=str(question_id),
                     RankedAnswers=ranked_answers,
                 )
             )
@@ -284,7 +282,7 @@ class LinearRegressionRanker(RankerBase):
 
             results.append(
                 RankedAnswersDict(
-                    QuestionID=question_id,
+                    QuestionID=str(question_id),
                     RankedAnswers=ranked_answers,
                 )
             )
@@ -353,7 +351,7 @@ class MPNetRanker(RankerBase):
 
             results.append(
                 RankedAnswersDict(
-                    QuestionID=question_id,
+                    QuestionID=str(question_id),
                     RankedAnswers=ranked_answers,
                 )
             )
@@ -405,7 +403,7 @@ class CatboostRanker(RankerBase):
     ) -> None:
         """fit CatBoost model on train_df"""
         train_df = train_df.dropna(subset=["graph"]).copy()
-        train_df = train_df.sample(frac=0.999).reset_index(drop=True)
+        train_df = train_df.sample(frac=0.9999).reset_index(drop=True)
         if val_df is not None:
             val_df = val_df.dropna(subset=["graph"]).copy()
             if len(val_df) == 0:
@@ -428,10 +426,6 @@ class CatboostRanker(RankerBase):
                     val_df[self.graph_features]
                 )
 
-        train_df = convert_embedding_columns_to_arrays(train_df, embedding_features)
-        if val_df is not None and len(val_df) > 0:
-            val_df = convert_embedding_columns_to_arrays(val_df, embedding_features)
-
         X_train = train_df[self.features_to_use]
         y_train = train_df["correct"].astype(float).tolist()
 
@@ -442,8 +436,6 @@ class CatboostRanker(RankerBase):
         train_class_weights = np.array(y_train)
         train_class_weights[train_class_weights == 0] = train_weights[0]
         train_class_weights[train_class_weights == 1] = train_weights[1]
-
-
 
         learn_pool = Pool(
             X_train,
@@ -492,11 +484,6 @@ class CatboostRanker(RankerBase):
             test_df[self.graph_features] = self.fitted_scaler.transform(
                 test_df[self.graph_features]
             )
-        
-        embedding_features = []
-        if self.sequence_features:
-            embedding_features = self.sequence_features.copy()
-        test_df = convert_embedding_columns_to_arrays(test_df, embedding_features)
 
         results = []
         groups = test_df.groupby("id")
@@ -512,7 +499,7 @@ class CatboostRanker(RankerBase):
 
             results.append(
                 RankedAnswersDict(
-                    QuestionID=question_id,
+                    QuestionID=str(question_id),
                     RankedAnswers=ranked_answers,
                 )
             )
