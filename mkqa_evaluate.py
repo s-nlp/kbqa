@@ -1,5 +1,6 @@
 """ Parsing the jsonl reranking prediction file to gather reranking results (top@n)"""
 from argparse import ArgumentParser, RawTextHelpFormatter
+import ast
 import json
 import os
 from tqdm.auto import tqdm
@@ -8,9 +9,9 @@ from datasets import load_dataset
 from pywikidata.utils import get_wd_search_results
 
 
-DESCRIPTION = """Evaluation script for mintaka ranked predictions
+DESCRIPTION = """Evaluation script for MKQA ranked predictions
 
-Evaluate ranked predictions. If AnswerEntityID not provided and question is not count or YesNo type,
+Evaluate ranked predictions. If AnswerEntityID not provided,
 try to link AnswerString to Entity and compare with GT.
 """
 
@@ -50,7 +51,7 @@ parser.add_argument(
     "--split",
     default="test",
     type=str,
-    help="Mintaka dataset split.\ntest by default",
+    help="MKQA dataset split.\ntest by default",
 )
 
 parser.add_argument(
@@ -97,15 +98,15 @@ def label_to_entity(label: str, top_k: int = 1) -> list:
     return list(dict.fromkeys(elastic_results).keys())[:top_k]
 
 
-class EvalMintaka:
-    """EvalMintaka Evaluation class for Mintaka ranked predictions"""
+class EvalMKQA:
+    """EvalMKQA Evaluation class for MKQA ranked predictions"""
 
     def __init__(self):
-        mintaka_ds = load_dataset("AmazonScience/mintaka", revision="refs/convert/parquet", data_dir=f"en")
+        mkqa_ds = load_dataset("Dms12/mkqa_mintaka_format_with_question_entities")
         self.dataset = {
-            "train": mintaka_ds["train"].to_pandas(),
-            "validation": mintaka_ds["validation"].to_pandas(),
-            "test": mintaka_ds["test"].to_pandas(),
+            "train": mkqa_ds["train"].to_pandas(),
+            "validation": mkqa_ds["validation"].to_pandas(),
+            "test": mkqa_ds["test"].to_pandas(),
         }
 
         # Extract Entities Names (Ids) from dataset records
@@ -117,29 +118,47 @@ class EvalMintaka:
     def _get_list_of_entity_ids(self, answer_entities):
         return [e["name"] for e in answer_entities]
 
-    def is_answer_correct(self, mintaka_record: pd.Series, answer: dict) -> bool:
+    def is_answer_correct(self, mkqa_record: pd.Series, answer: dict) -> bool:
         """to check whether an answer is correct or not
 
         Args:
-            mintaka_record (pd.Series): row in the mintaka dataset
+            mkqa_record (pd.Series): row in the MKQA dataset
             answer (dict): answer dict; comprising of the answer entity and/or answer str
 
         Returns:
             bool: correct or not
         """
-        if mintaka_record["complexityType"] in ["count", "yesno"]:
-            return answer["AnswerString"] == mintaka_record["answerText"]
-        else:
-            if answer.get("AnswerEntityID") is None:
-                answer["AnswerEntityID"] = label_to_entity(answer["AnswerString"])[0]
+        answer_entity_id = answer.get("AnswerEntityID")
+        
+        # Parse AnswerEntityID if it's a string representation of a list
+        if answer_entity_id is not None and isinstance(answer_entity_id, str):
+            if answer_entity_id.startswith("[") and answer_entity_id.endswith("]"):
+                try:
+                    parsed = ast.literal_eval(answer_entity_id)
+                    if isinstance(parsed, list) and len(parsed) > 0:
+                        answer_entity_id = parsed[0]
+                    else:
+                        answer_entity_id = None
+                except (ValueError, SyntaxError):
+                    answer_entity_id = None
+        
+        if answer_entity_id is None:
+            if answer.get("AnswerString") is not None:
+                answer_entity_id = label_to_entity(answer["AnswerString"])[0]
+            else:
+                answer_entity_id = None
 
-            if (
-                answer.get("AnswerEntityID") is None
-                and mintaka_record["answerText"] is not None
-            ):
-                return answer["AnswerString"] == mintaka_record["answerText"]
+        if (
+            answer_entity_id is None
+            and mkqa_record["answerText"] is not None
+            and answer.get("AnswerString") is not None
+        ):
+            return answer["AnswerString"] == mkqa_record["answerText"]
 
-            return answer.get("AnswerEntityID") in mintaka_record["answerEntityNames"]
+        if answer_entity_id is None:
+            return False
+
+        return answer_entity_id in mkqa_record["answerEntityNames"]
 
     def evaluate(self, predictions, split: str = "test", top_n: int = 10):
         """evaluate _summary_
@@ -168,10 +187,13 @@ class EvalMintaka:
         import concurrent.futures
 
         def process_prediction(prediction):
-            question_idx = prediction["QuestionID"]
-            mintaka_record = _df[_df["id"] == question_idx].iloc[0]
+            question_idx = int(prediction["QuestionID"])
+            matching_records = _df[_df["id"] == question_idx]
+            if len(matching_records) == 0:
+                raise ValueError(f"QuestionID {question_idx} not found in dataset")
+            mkqa_record = matching_records.iloc[0]
             is_answer_correct_results = [
-                self.is_answer_correct(mintaka_record, answer)
+                self.is_answer_correct(mkqa_record, answer)
                 for answer in prediction["RankedAnswers"]
             ]
             return is_answer_correct_results
@@ -188,7 +210,7 @@ class EvalMintaka:
             is_correct.extend(results)
 
         is_correct_df = pd.DataFrame(is_correct)
-        is_correct_df["id"] = [p["QuestionID"] for p in predictions]
+        is_correct_df["id"] = [int(p["QuestionID"]) for p in predictions]
         is_correct_df = _df.merge(is_correct_df, on="id")
 
         if len(set(is_correct_df["id"]).symmetric_difference(_df["id"])) != 0:
@@ -199,20 +221,9 @@ class EvalMintaka:
             )
 
         # Format metrics based on is_correct matrix
-        without_yesno_and_count_filter = is_correct_df["complexityType"].apply(
-            lambda s: s not in ["yesno", "count"]
-        )
         results = {
             "FULL Dataset": self._calculate_hits(is_correct_df, top_n),
-            "Without Yes/No and Count": self._calculate_hits(
-                is_correct_df[without_yesno_and_count_filter], top_n
-            ),
         }
-        for complexity_type in is_correct_df["complexityType"].unique():
-            results[f"Only {complexity_type}"] = self._calculate_hits(
-                is_correct_df[is_correct_df["complexityType"] == complexity_type],
-                top_n,
-            )
         return results
 
     def _calculate_hits(self, is_correct_df: pd.DataFrame, top_n: int = 10) -> dict:
@@ -243,13 +254,13 @@ if __name__ == "__main__":
         with open(args.predictions_path, "r", encoding="utf-8") as f:
             reranking_predictions = [json.loads(line) for line in f.readlines()]
 
-        eval_mintaka = EvalMintaka()
-        reranking_results = eval_mintaka.evaluate(reranking_predictions, args.split, 5)
+        eval_mkqa = EvalMKQA()
+        reranking_results = eval_mkqa.evaluate(reranking_predictions, args.split, 5)
 
         with open(output_path, "w+", encoding="utf-8") as file_output:
-            file_output.write("Hit scores: \n")
+            file_output.write("Hit scores:\n")
             for key, val in reranking_results.items():
                 file_output.write(f"{key}")
-                for hitkey, hitval in val.items():
+                for hitkey, hitval in sorted(val.items(), key=lambda x: int(x[0].split("@")[1])):
                     file_output.write(f"\t{hitkey:6} = {hitval:.6f}")
                 file_output.write("\n")
