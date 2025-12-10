@@ -22,11 +22,12 @@ Our KGQA pipeline is a novel framework which enhances Large Language Models' per
 
 ![big_pipline](assets/big_pipe.png)
 
-Our KGQA pipelines includes generating answer candidates, entity linking for question entities, subgraphs generation, feature extractors for subgraphs, and various ranking models. All experiments for these papers were based on [Mintaka](https://www.google.com/search?q=mintaka+amazon) - a complex factoid question answering dataset. 
+Our KGQA pipeline includes generating answer candidates, entity linking for question entities, subgraphs generation, feature extractors for subgraphs, and various ranking models. The pipeline leverages Wikidata as the Knowledge Graph and extracts subgraphs by calculating shortest paths between entities. Experiments were conducted on [Mintaka](https://huggingface.co/datasets/AmazonScience/mintaka) and [MKQA](https://github.com/google-research-datasets/mkqa) - complex factoid question answering datasets. 
 
 ### 📝 Quick Links
 - [📄 Knowledge Graph Question Answering - KGQA📑](#knowledge-graph-question-answering)
   - [🛣KGQA Overview](#kgqa-overview)
+  - [💻Hardware Requirements](#hardware-requirements)
   - [🔨Answer Candidates Generation](#answer-candidates-generation)
   - [🔧Entity Linking](#entity-linking)
   - [🛠️Subgraphs Extraction](#subgraphs-extraction)
@@ -50,7 +51,20 @@ python3 kbqa/mistral_mixtral.py --mode train_eval --model_name mistralai/Mistral
 ```
 The generated candidates for the T5-like models and Mixtral/Mistral will be `.csv` and `.json` format, respectively. 
 
-In both `seq2seq.py` and `mistral_mixtral.py`, you can other useful arguments, which includes tracking, training parameters, finetuning parameters, path for checkpoints etc. These arguments are detailed within the files themselves. Lastly, if you prefer to use our prepared finetuned models and generated candidates, we have uplodaed them to [HuggingFace](https://huggingface.co/datasets/s-nlp/KGQASubgraphsRanking).
+In both `seq2seq.py` and `mistral_mixtral.py`, you can other useful arguments, which includes tracking, training parameters, finetuning parameters, path for checkpoints etc. These arguments are detailed within the files themselves. 
+
+**Supported Datasets:** The `seq2seq.py` script supports multiple datasets including:
+- `AmazonScience/mintaka` (default): The Mintaka dataset
+- `mkqa-hf`: MKQA dataset in Mintaka format from `Dms12/mkqa_mintaka_format_with_question_entities`
+- `mkqa`: Local MKQA dataset files (`mkqa_train.json` and `mkqa_test.json`)
+- `s-nlp/lc_quad2`: LC-QuAD 2.0 dataset
+
+To use a specific dataset, set the `--dataset_name` argument accordingly. For example:
+```bash
+python3 seq2seq.py --mode train_eval --dataset_name mkqa-hf --model_name t5-large
+```
+
+Lastly, if you prefer to use our prepared finetuned models and generated candidates, we have uplodaed them to [HuggingFace](https://huggingface.co/datasets/s-nlp/KGQASubgraphsRanking).
 ### Entity Linking
 ![entity_linking](assets/entity_linking.png)
 In both of our papers, we decided to use the golden question entities provided by the Mintaka dataset. The scope of our research were solely on the novelty of the subgraphs and the efficacy of different ranking methods. 
@@ -58,9 +72,9 @@ In both of our papers, we decided to use the golden question entities provided b
 
 ### Subgraphs Extraction
 ![subgraphs_pipe](assets/subgraphs_pipe.png)
-You can either 1) use our prepared dataset at [HuggingFace](https://huggingface.co/datasets/s-nlp/KGQASubgraphsRanking) or 2) fetch your own dataset. **Please do note, if you'd like to fetch your own subgraphs dataset, the task is very computationally expensive on the CPU**. The extraction protocal can be divided into 2 steps.
- - parsing the Wikidata dump to build our Wikidata graph via iGraph.
- - load our Igraph representation of Wikidata and generate the subgraph dataset.
+The subgraph extraction process extracts subgraphs related to entity candidates from question-and-answer sets by calculating shortest paths between entities in the Wikidata Knowledge Graph. You can either 1) use our prepared dataset at [HuggingFace](https://huggingface.co/datasets/s-nlp/KGQASubgraphsRanking) for Mintaka or 2) extract your own dataset. **⚠️ WARNING: Subgraph extraction is very computationally expensive and memory-intensive (requires 60-80GB RAM per parallel process)**. The extraction protocol can be divided into 2 steps:
+ - Parsing the Wikidata dump to build our Wikidata graph via iGraph.
+ - Loading our iGraph representation of Wikidata and generating the subgraph dataset.
 
 All subgraphs extraction codes can be found in `kbqa/subgraphs_dataset_creation/`.
 #### Parsing Wikidata Dump 
@@ -144,14 +158,17 @@ python3 kbqa/experiments/subgraphs_reranking/graph_features_preparation.py --sub
 The output file will be a `.csv` file of the same format as the published [finalised HuggingFace dataset](https://huggingface.co/datasets/s-nlp/KGQASubgraphsRanking). **Please pay attention that one would need to repeat the "[Building the Subgraphs](#building-the-subgraphs)" and "[Subgraphs Feature Extraction](#subgraphs-feature-extraction)" sections for train, val, test for T5-large-ssm, T5-xl-ssm, Mistral, and Mixtral**. The [finalised HuggingFace dataset](https://huggingface.co/datasets/s-nlp/KGQASubgraphsRanking) already combined all data splits and LLMs into one total-packaged dataset.
 
 ### Ranking Answer Candidates Using Subgraphs
-Using the [finalised dataset](https://huggingface.co/datasets/s-nlp/KGQASubgraphsRanking), we devised the following rankers:
-- **Graph Transformer**: leveraging the raw subgraphs by itselves.
-- **Regression-based**: Logistic and Linear Regression with graph features and MPNet embeddings of text and G2T features. 
-- **Gradient Boosting**: Catboost with graph features and MPNet embeddings of text and G2T features.
-- **Sequence Ranker**: MPNet with G2T features.
+Using the [finalised dataset](https://huggingface.co/datasets/s-nlp/KGQASubgraphsRanking), we devised the following reranking methods to select the most probable answers from candidate lists:
 
-After training/fitting, all tuned rankers will generate the list of re-ranked answer candidates with the same skeleton, outlined in `/kbqa/experiments/subgraphs_reranking/ranking_model.py` (**beside Graphormer**). This list of re-ranked answer candidates (in `jsonl` format) is then evaluated with Hits@N metrics with `kbqa/mintaka_evaluate.py`
-Evaluating
+- **Regression-based**: Logistic and Linear Regression models using graph features and MPNet embeddings of text and G2T features. 
+- **Gradient Boosting (CatBoost)**: Gradient boosting models with graph features and MPNet embeddings of text and G2T features.
+- **Sequence Ranker (MPNet)**: Semantic similarity-based ranking using MPNet embeddings of G2T features.
+- **RankGPT**: Zero-shot LLM-based reranking using instructional permutation generation (supports both Mintaka and MKQA-hf datasets).
+
+These methods utilize various features extracted from the mined subgraphs, including graph structural features, text embeddings, and graph-to-text (G2T) sequence embeddings.
+
+After training/fitting, all tuned rankers will generate the list of re-ranked answer candidates with the same skeleton, outlined in `/kbqa/experiments/subgraphs_reranking/ranking_model.py` (**beside Graphormer**). This list of re-ranked answer candidates (in `jsonl` format) is then evaluated with Hits@N metrics with `kbqa/mintaka_evaluate.py`.
+
 #### Training \&  Generating the Re-ranked Answers
 **Graphormer:** As Graphormer was introduced in the original paper, it is the only ranker that was **not updated** to work with `kbqa/experiments/subgraphs_reranking/ranking_model.py` and `kbqa/mintaka_evaluate.py`. We are still working to refractor the code to the unified ranking pipeline, introduced in the extended paper. With that in mind, you can train the Graphormer model with:
 ```bash
@@ -184,12 +201,76 @@ For the sequence ranker code, there are several available arguments, which can b
 
 After training sequence ranker on the desired answer candidate LLM subgraph dataset and sequence, please load the path of the tuned model in `ranking.ipynb` to evaluate. Please pay attention to the parameters of `MPNetRanker()` in `ranking.ipynb` (the different sequence used must be pass in accordingly). It is important to note that the tuned model will generate and rank answer candidates to produce a ranking `.jsonl` file.
 
+**RankGPT:** RankGPT is a zero-shot LLM-based reranking approach that uses instructional permutation generation. It requires no training and works with OpenAI-compatible APIs (including vLLM). To use RankGPT:
+
+```bash
+cd experiments/subgraphs_reranking/rankgpt
+python3 predict.py \
+    --model_name meta-llama/Llama-2-7b-chat-hf \
+    --dataset mintaka \
+    --ds_type t5xlssm \
+    --output_path /path/to/output.jsonl \
+    --window_size 20 \
+    --step_size 10
+```
+
+For MKQA-hf dataset:
+```bash
+python3 predict.py \
+    --model_name meta-llama/Llama-2-7b-chat-hf \
+    --dataset mkqa-hf \
+    --ds_type t5xlssm \
+    --output_path /path/to/output.jsonl
+```
+
+Key arguments:
+- `--model_name`: LLM model name for ranking (e.g., `meta-llama/Llama-2-7b-chat-hf`, `mistralai/Mistral-7B-Instruct-v0.2`)
+- `--dataset`: Dataset to use (`mintaka` or `mkqa-hf`)
+- `--ds_type`: Answer candidate LLM type (`t5largessm`, `t5xlssm`, `mistral`, `mixtral`)
+- `--window_size`: Window size for sliding window ranking (default: 20)
+- `--step_size`: Step size for sliding window (default: 10)
+- `--graph_sequence_feature`: Optional graph sequence feature (`highlighted_determ_sequence` or `no_highlighted_determ_sequence`)
+
+The ranker requires API configuration via environment variables:
+```bash
+export OPENAI_BASE_URL="http://localhost:8000/v1"  # Your vLLM or OpenAI endpoint
+export OPENAI_API_KEY="your-api-key"  # Can be "EMPTY" for local vLLM
+```
+
+RankGPT automatically handles answer deduplication and uses sliding window strategy for large answer sets. The output format is compatible with `mintaka_evaluate.py`.
+
 #### Hits@N Evaluation
 After producing the new list of re-ranked answer candidates, you can evaluate this `.jsonl` file by running:
 ```bash
 python3 kbqa/mintaka_evaluate.py --predictions_path path_to_jsonl_prediction_file
 ```
 Running the above code will produce the final evaluation of our ranker. The evaluation includes Hits@1-5 for the entire Mintaka dataset and each of the question type (intersection, comparative, generic, etc.). 
+
+### Hardware Requirements
+
+The hardware requirements vary significantly depending on which components of the pipeline you plan to use:
+
+#### Minimum Requirements (Using Pre-computed Datasets)
+- **CPU**: Multi-core processor (4+ cores recommended)
+- **RAM**: 32GB minimum, 120GB recommended
+- **GPU**: Optional, but recommended for training and inference
+  - For T5-base/large: 12GB VRAM
+  - For T5-3B/XL: 24GB VRAM
+  - For Mistral/Mixtral: 80GB VRAM
+- **Storage**: 100GB+ free space for datasets and models
+
+#### Subgraph Extraction Requirements
+**⚠️ WARNING: Subgraph extraction is computationally expensive and memory-intensive.**
+
+- **CPU**: High-performance multi-core processor (32+ cores recommended for parallel processing)
+- **RAM**: **60-80GB per parallel process** (critical requirement)
+  - The `--n_jobs` parameter controls parallelism
+  - Example: With `--n_jobs=4`, you need 240-320GB total RAM
+  - Consider using fewer jobs if RAM is limited
+- **Storage**: 2000GB+ free space for Wikidata dumps and parsed graph representations
+- **Time**: Parsing Wikidata dump can take several days depending on hardware
+
+**Recommendation**: Use our pre-computed datasets from [HuggingFace](https://huggingface.co/datasets/s-nlp/KGQASubgraphsRanking) instead of extracting subgraphs yourself unless you have access to high-memory compute infrastructure.
 
 ### Miscallaneous 
 #### Build \& Run KGQA Docker Environment
