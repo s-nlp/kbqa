@@ -11,9 +11,12 @@
 </p>
 
 
-This repository serves as an all-packaged KGQA system, hosts of the original paper [Large Language Models Meet Knowledge Graphs to Answer Factoid Questions](https://aclanthology.org/2023.paclic-1.63/) and its extended version Re-ranking
-Answers by a Large Language Model
-with Knowledge Graphs. The extended paper is currently in review for a journal. Once the process is finished, we will update the link here. 
+This repository serves as an all-packaged KGQA system, hosts of the original paper [Large Language Models Meet Knowledge Graphs to Answer Factoid Questions](https://aclanthology.org/2023.paclic-1.63/) and its extended version [Reranking
+Answers by a Large Language Model with Knowledge Graphs](https://www.semantic-web-journal.org/content/reranking-answers-large-language-models-knowledge-graphs-1/). 
+
+You can also try an <a href="https://kgqa-nlp-zh.skoltech.ru/"><b>online demo</b></a> for our KG enabled QA system. 
+
+If you find this repository useful please cite the papers above.
 
 ### KGQA Overview
 
